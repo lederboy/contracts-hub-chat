@@ -4,6 +4,23 @@ import { ChatSession } from "../session"
 export interface BaseCallData {
     session: ChatSession
 }
+export interface LLMRouterCallData extends BaseCallData {
+    state: "LLM_ROUTER",
+    query: string
+}
+
+export interface ParseQueryCallData extends BaseCallData {
+    state: "PARSE_SEARCH_QUERY"
+    query: string
+}
+export interface SearchCallData extends BaseCallData {
+    state: "SEARCH",
+    query: string,
+    parsedQuery:{
+        searchParams: Record<string,any>[],
+        selecParams: Record<string, any>[]
+    } //TODO add definition
+}
 export interface ModifyQueryCallData extends BaseCallData {
     state: 'MODIFY_QUERY_WITH_HISTORY'
     query: string
@@ -34,7 +51,11 @@ export interface CompleteCallData extends BaseCallData {
     state: 'COMPLETE'
     llmResponse: string
 }
-export type CallData = ModifyQueryCallData            |
+export type CallData = 
+                       LLMRouterCallData              |
+                       ParseQueryCallData             |
+                       SearchCallData                 |
+                       ModifyQueryCallData            |
                        GetDocumentFromSummaryCallData |
                        GetDocumentContentCallData     |
                        RunLLMWithContentCallData      |
