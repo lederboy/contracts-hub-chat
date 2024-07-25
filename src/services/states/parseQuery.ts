@@ -25,7 +25,7 @@ export class ParseSearchQuery {
                 ),
         ]
         let responses: any = {
-            selectParams: [{"fieldName": "fileName"}],
+            selectParams: [],
             searchParams: []
         }
         for await (let completion of completions){
@@ -36,7 +36,7 @@ export class ParseSearchQuery {
                  if(message.content){
                     const json = JSON.parse(message.content)
                     if("selectParams" in  json){
-                        responses.selectParams = json.selecParams
+                        responses.selectParams = json.selectParams
                     } else if("searchParams" in json){
                         responses.searchParams = json.searchParams
                     }
@@ -44,6 +44,7 @@ export class ParseSearchQuery {
                 }
              }
         }
+        responses.selectParams.push({"fieldName": "fileName"})
         return {
             state: 'SEARCH',
             session: callData.session,

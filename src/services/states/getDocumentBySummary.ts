@@ -5,21 +5,21 @@ import { GetDocumentContentCallData, GetDocumentFromSummaryCallData } from "./st
 export class GetDocumentFromSummary {
     static async run(callData: GetDocumentFromSummaryCallData, contractsHubCredentials: {key: string, endpoint: string}): Promise<GetDocumentContentCallData> {
         const query = callData.modifiedQuery
-        let document: string
+        let documents: string[]
         if(callData.session.documents.length > 0){
-            document = callData.session.documents[0]
+            documents = callData.session.documents.slice(0,2)
         }else{
             const docRes = await getBySummary(
                 {query: query}, 
                 contractsHubCredentials
             )
-            document = docRes.probableDocuments[0]
+            documents = docRes.probableDocuments.slice(0,2)
         }
         return {
             state: 'GET_DOCUMENT_CONTENT',
             session: callData.session,
             query: query,
-            document: document
+            documents: documents
         }
     }
 }

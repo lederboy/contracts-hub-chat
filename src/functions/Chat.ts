@@ -50,7 +50,7 @@ export async function Chat(request: HttpRequest, context: InvocationContext): Pr
     while(callData.state !== "COMPLETE"){
         try{
             callData = await chatWorkflow.run(callData)
-            context.info(callData)
+            context.log(callData)
         }catch(err){
             context.error(callData)
             context.error(err)

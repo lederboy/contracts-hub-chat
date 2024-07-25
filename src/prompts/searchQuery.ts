@@ -13,11 +13,11 @@ export const SelectQuery: ChatRequestSystemMessage = {
     }
 
     Here are the available fieldNames: 
-    - medicareContract
-    - effectiveDate
-    - chainOrNCPDPCodes
-    - company
-    - contractContact
+    - medicareContract: ONLY if query specifies medicare
+    - effectiveDate: the date the contract becomes effective
+    - chainOrNCPDPCodes: chain code or NCPDP code
+    - company: company of interest
+    - network: the pharmacy networks involved in the contract
 
 
     Here are the examples that highlight how to use this interface
@@ -61,10 +61,11 @@ export const FilterQuery: ChatRequestSystemMessage = {
     }
 
     Here are the available fieldNames: 
-    - medicareContract
-    - effectiveDate
-    - chainOrNCPDPCodes
-    - company
+    - medicareContract: only if query specifies medicare
+    - effectiveDate: the date the contract becomes effective
+    - chainOrNCPDPCodes: chain code or NCPDP code
+    - company: company of interest
+    - network: the pharmacy networks involved in the contract
 
 
     Here are the examples that highlight how to use this interface

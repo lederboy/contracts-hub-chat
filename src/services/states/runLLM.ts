@@ -1,31 +1,31 @@
 import { OpenAIClient } from "@azure/openai";
 import { RunLLMWithContentCallData, FinalizeCallData} from "./states";
 import { AnswerQuery } from "../../prompts/answerQuery";
+import { GetDocumentContent } from "./getContentByDocument";
 
 
 
 
 export class RunLLMWithContent {
-    static formatContentAndDocuments(callData: RunLLMWithContentCallData) {
-        const jsons: string[] = []
-        for(let json of callData.content.jsons){
-            jsons.push(JSON.stringify(json.document.content))
-        }
+    static formatContentAndDocuments(content: any, document: string) {
         return `
-        query:
-            ${callData.query}
         content:
-            ${jsons}
+            ${JSON.stringify(content)}
         source:
-            ${callData.document}
+            ${document}
         `
 
     }
     static async run(callData: RunLLMWithContentCallData, openaiClient: OpenAIClient, deployment: string): Promise<FinalizeCallData> {
-    
+        let userPrompt = `
+            query: ${callData.query}\n
+        `
+        for(let i = 0; i < callData.documents.length; i++){
+            userPrompt += this.formatContentAndDocuments(callData.contents[i], callData.documents[i]) + '\n'
+        }
         const completion = await openaiClient.getChatCompletions(
             deployment,
-            [AnswerQuery, {role: 'user', content: this.formatContentAndDocuments(callData)}]
+            [AnswerQuery, {role: 'user', content: userPrompt}]
         )
 
         if(completion.choices.length > 0){
@@ -36,7 +36,7 @@ export class RunLLMWithContent {
                 return {
                     state: 'FINALIZE',
                     session: callData.session,
-                    document: callData.document,
+                    documents: callData.documents,
                     query: callData.query,
                     llmResponse: message.content
                 }

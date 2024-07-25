@@ -5,7 +5,7 @@ export interface SearchRequest {
     selectParams: Record<string,any>[]
 }
 export interface SearchResponse {
-    searchResults: string[]
+    searchResults: any[]
 }
 export class SearchError extends Error {}
 export const searchContracts = async (payload: SearchRequest, api: {endpoint: string, key: string}) => {
