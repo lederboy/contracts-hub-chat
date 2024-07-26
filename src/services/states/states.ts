@@ -1,4 +1,5 @@
 import { GetContentResponse } from "../../apis/content"
+import { SearchResponse } from "../../apis/search"
 import { ChatSession } from "../session"
 
 export interface BaseCallData {
@@ -13,33 +14,32 @@ export interface ParseQueryCallData extends BaseCallData {
     state: "PARSE_SEARCH_QUERY"
     query: string
 }
-export interface SearchCallData extends BaseCallData {
-    state: "SEARCH",
-    query: string,
+
+export interface GetDocumentsCallData extends BaseCallData {
+    state: "GET_DOCUMENTS",
+    query: string
     parsedQuery:{
         searchParams: Record<string,any>[],
         selectParams: Record<string, any>[]
     } //TODO add definition
 }
+export interface SearchCallData extends BaseCallData {
+    state: "SEARCH",
+    query: string,
+    documents: string[]
+}
+
+export interface AnswerFromSearchCallData extends BaseCallData {
+    state: "ANSWER_FROM_SEARCH"
+    query: string
+    documents: string[]
+    searchResponse: Record<string, string>
+}
 export interface ModifyQueryCallData extends BaseCallData {
     state: 'MODIFY_QUERY_WITH_HISTORY'
     query: string
 }
-export interface GetDocumentFromSummaryCallData extends BaseCallData {
-    state: 'GET_DOCUMENT_FROM_SUMMARY'
-    modifiedQuery: string
-}
-export interface GetDocumentContentCallData extends BaseCallData {
-    state: 'GET_DOCUMENT_CONTENT',
-    query: string
-    documents: string[]
-}
-export interface RunLLMWithContentCallData extends BaseCallData {
-    state: 'RUN_LLM_WITH_CONTENT',
-    query: string,
-    documents: string[]
-    contents: any[]
-}
+
 export interface FinalizeCallData extends BaseCallData {
     state: 'FINALIZE',
     query: string
@@ -51,13 +51,11 @@ export interface CompleteCallData extends BaseCallData {
     state: 'COMPLETE'
     llmResponse: string
 }
-export type CallData = 
-                       LLMRouterCallData              |
+export type CallData =
                        ParseQueryCallData             |
                        SearchCallData                 |
+                       GetDocumentsCallData           |
+                       AnswerFromSearchCallData       |
                        ModifyQueryCallData            |
-                       GetDocumentFromSummaryCallData |
-                       GetDocumentContentCallData     |
-                       RunLLMWithContentCallData      |
                        FinalizeCallData               |
                        CompleteCallData

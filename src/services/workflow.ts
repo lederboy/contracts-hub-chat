@@ -1,14 +1,12 @@
 import { OpenAIClient } from "@azure/openai";
 import { ModifyQueryWithHistory } from "./states/modifyQueryWithHistory";
 import { CallData } from "./states/states";
-import { GetDocumentFromSummary } from "./states/getDocumentBySummary";
-import { GetDocumentContent } from "./states/getContentByDocument";
-import { RunLLMWithContent } from "./states/runLLM";
 import { Finalize } from "./states/finalize";
 import { ApiCredentials, Deployments } from "../utils/types";
-import { LLMRouter } from "./states/router";
 import { ParseSearchQuery } from "./states/parseQuery";
 import { Search } from "./states/search";
+import { AnswerQueryFromSearch } from "./states/answerFromSearch";
+import { GetDocuments } from "./states/getDocuments";
 
 export class WorkflowError extends Error {}
 
@@ -24,26 +22,27 @@ export class ChatWorkflow {
     }
 
     async run(callData: CallData): Promise<CallData>{
-        if (callData.state === "LLM_ROUTER"){
-            return await LLMRouter.run(callData, this.openaiClient, this.openaiDeployments.completions)
-        }
-        else if(callData.state === "PARSE_SEARCH_QUERY"){
-            return await ParseSearchQuery.run(callData, this.openaiClient, this.openaiDeployments.completions)
-        }
-        else if(callData.state === "SEARCH"){
-            return await Search.run(callData, {key: this.contractsHubCredentials.key, endpoint: this.contractsHubCredentials.searchEndpoint})
-        }
-        else if(callData.state === "MODIFY_QUERY_WITH_HISTORY"){
+        if(callData.state === "MODIFY_QUERY_WITH_HISTORY"){
             return await ModifyQueryWithHistory.run(callData, this.openaiClient, this.openaiDeployments.completions)
         }
-        else if(callData.state === "GET_DOCUMENT_FROM_SUMMARY"){
-            return await GetDocumentFromSummary.run(callData, {key: this.contractsHubCredentials.key, endpoint: this.contractsHubCredentials.summaryEndpoint})
+        if(callData.state === "PARSE_SEARCH_QUERY"){
+            return await ParseSearchQuery.run(callData, this.openaiClient, this.openaiDeployments.completions)
         }
-        else if(callData.state === "GET_DOCUMENT_CONTENT") {
-            return await GetDocumentContent.run(callData,  {key: this.contractsHubCredentials.key, endpoint: this.contractsHubCredentials.contentEndpoint})
+        else if(callData.state === "GET_DOCUMENTS"){
+            return await GetDocuments.run(callData, {
+                key: this.contractsHubCredentials.key, 
+                endpoint: this.contractsHubCredentials.searchEndpoint
+            })
         }
-        else if(callData.state === "RUN_LLM_WITH_CONTENT"){
-            return await RunLLMWithContent.run(callData, this.openaiClient, this.openaiDeployments.completions)
+        else if(callData.state === "SEARCH"){
+            return await Search.run(callData, {
+                key: this.contractsHubCredentials.key, 
+                searchEndpoint: this.contractsHubCredentials.searchEndpoint, 
+                contentEndpoint: this.contractsHubCredentials.contentEndpoint
+            })
+        }
+        else if(callData.state === "ANSWER_FROM_SEARCH"){
+            return await AnswerQueryFromSearch.run(callData, this.openaiClient, this.openaiDeployments.completions)
         }
         else if(callData.state === "FINALIZE") {
             return Finalize.run(callData)

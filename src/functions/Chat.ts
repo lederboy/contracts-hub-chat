@@ -45,17 +45,20 @@ export async function Chat(request: HttpRequest, context: InvocationContext): Pr
     let callData: CallData = {
         session: session, 
         query: chatSesh.query, 
-        state: 'LLM_ROUTER'
+        state: 'MODIFY_QUERY_WITH_HISTORY'
     }
     while(callData.state !== "COMPLETE"){
         try{
             callData = await chatWorkflow.run(callData)
-            context.log(callData)
+            context.log(JSON.stringify(callData))
         }catch(err){
             context.error(callData)
             context.error(err)
             return {
-                status: 400
+                headers: {
+                    'Content-Type': 'application/json'
+                },
+                body: JSON.stringify(callData)
             }
         }
     }
@@ -67,6 +70,7 @@ export async function Chat(request: HttpRequest, context: InvocationContext): Pr
         body: JSON.stringify(
             {
                 llmResponse: callData.llmResponse,
+                documents: callData.session.documents,
                 sessionId: sessionId
             }
         )

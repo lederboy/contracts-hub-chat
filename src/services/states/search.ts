@@ -1,28 +1,25 @@
-import { GetContentResponse } from "../../apis/content";
+import { getContent } from "../../apis/content";
 import { searchContracts, SearchResponse } from "../../apis/search";
-import { RunLLMWithContentCallData, SearchCallData } from "./states";
+import { SearchCallData, AnswerFromSearchCallData, ModifyQueryCallData } from "./states";
 
 
 
 
 export class Search {
-    static async run(callData: SearchCallData, creds: {key: string, endpoint: string}): Promise<RunLLMWithContentCallData>{
-        const searchRes: SearchResponse = await searchContracts(
-            callData.parsedQuery,
-            creds
-        )
-        let contents = searchRes.searchResults.map((sRes) => {
-            return {
-                chunks: [""],
-                summary: "",
-                json: sRes
-            }
-        })
+    static async run(callData: SearchCallData, creds: {key: string, searchEndpoint: string, contentEndpoint: string}): Promise<AnswerFromSearchCallData>{
+        const jsonsPerContract: Record<string, string> = {}
+
+
+        for await(let doc of callData.documents){
+            const vecSearchRes = await getContent({document: doc.replace('.pdf',''), query: callData.query}, {key: creds.key, endpoint: creds.contentEndpoint})
+            const jsonResponses = vecSearchRes.jsons
+            jsonsPerContract[doc] = JSON.stringify(jsonResponses)
+        }
         return {
-            state: "RUN_LLM_WITH_CONTENT",
-            contents: contents,
+            state: "ANSWER_FROM_SEARCH",
+            searchResponse: jsonsPerContract,
             session: callData.session,
-            documents: searchRes.searchResults.map(sRes => sRes.fileName), // need to impl
+            documents: callData.documents,
             query: callData.query
         }
     }

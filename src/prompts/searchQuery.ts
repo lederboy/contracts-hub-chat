@@ -16,8 +16,7 @@ export const SelectQuery: ChatRequestSystemMessage = {
     - medicareContract: ONLY if query specifies medicare
     - effectiveDate: the date the contract becomes effective
     - chainOrNCPDPCodes: chain code or NCPDP code
-    - company: company of interest
-    - network: the pharmacy networks involved in the contract
+
 
 
     Here are the examples that highlight how to use this interface
@@ -26,20 +25,17 @@ export const SelectQuery: ChatRequestSystemMessage = {
     output: {
         "selectParams": [
             {"fieldName": "chainOrNCPDPCodes"},
-            {"fieldName": "fileName"}
         ]
     }
     input: "Give me all contract contacts from CVS contracts
     output: {
         "selectParams": [
             {"fieldName": "contractContact"},
-            {"fieldName": "fileName"}
         ]
     }
     input: "List all CVS contracts"
     output: {
         "selectParams": [
-            {"fieldName": "fileName"}
         ]
     }
     `
@@ -65,8 +61,6 @@ export const FilterQuery: ChatRequestSystemMessage = {
     - effectiveDate: the date the contract becomes effective
     - chainOrNCPDPCodes: chain code or NCPDP code
     - company: company of interest
-    - network: the pharmacy networks involved in the contract
-
 
     Here are the examples that highlight how to use this interface
     EXAMPLES:
@@ -155,7 +149,23 @@ export const FilterQuery: ChatRequestSystemMessage = {
                     "value": "true"  
                 }
             ]
-        ]
-    }
+        }
+
+        input: "List all chain codes from cvs contracts after 2023"
+        output : {
+            "searchParams": [
+                {
+                    "fieldName": "company",
+                    "operator": "LIKE",
+                    "value": "CVS"
+                },
+                {
+                    "fieldName": "effectiveDate",
+                    "operator": ">",
+                    "value": "2023"
+                
+                }
+            ]
+        }
         ` 
 }

@@ -1,6 +1,7 @@
 import { OpenAIClient } from "@azure/openai"
-import { FinalizeCallData, ParseQueryCallData, SearchCallData } from "./states"
+import {GetDocumentsCallData,ParseQueryCallData} from "./states"
 import { FilterQuery, SelectQuery } from "../../prompts/searchQuery"
+import { Search } from "./search"
 
 
 
@@ -10,7 +11,7 @@ import { FilterQuery, SelectQuery } from "../../prompts/searchQuery"
 
 
 export class ParseSearchQuery {
-    static async run(callData: ParseQueryCallData, openaiClient: OpenAIClient, deployment: string): Promise<SearchCallData> {
+    static async run(callData: ParseQueryCallData, openaiClient: OpenAIClient, deployment: string): Promise<GetDocumentsCallData> {
     
         const completions = [
                 openaiClient.getChatCompletions(
@@ -44,12 +45,14 @@ export class ParseSearchQuery {
                 }
              }
         }
-        responses.selectParams.push({"fieldName": "fileName"})
         return {
-            state: 'SEARCH',
+            state: 'GET_DOCUMENTS',
             session: callData.session,
             query: callData.query,
-            parsedQuery: responses
+            parsedQuery: {
+                searchParams: responses.searchParams,
+                selectParams: []
+            }
         }
 
         // throw Error('Error Completing Query')
