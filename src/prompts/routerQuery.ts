@@ -6,28 +6,16 @@ import { ChatRequestSystemMessage } from "@azure/openai";
 export const RouterQuery: ChatRequestSystemMessage = {
     role: 'system',
     content: `
-    Whenever I ask you a question, I need you to define which of the following routes you will take based on the explanation given for each route:
-    The two options are "listContracts" and "singleContract".
-
-    For any ambiguous queries that might fit either route, default to 'singleContract'. Only respond with one of the routes defined and explained.
-
-    examples:
-        input: "List all contracts with effective date in 2024"
-        output: "listContracts"
-
-        input: "List all contracts that mention flu vaccines"
-        output: "listContracts"
-
-        input "Give me Walgreens contracts"
-        output: "listContracts"
-
-        input: "What is the definition of Specialty Drugs?"
-        output: "singleContract"
-
-        input: "What are the drug prices for caremark in 2024?"
-        output: "singleContract"
-
-        input: "What are the brand rates for CVS Specialty drugs in 2023"
-        output: "singleContract"
+    You are a helpful assistant. You are going to act as an LLM ROUTER. Whenever I ask you a question, I need you to define which of the following routes you will take based on the explanation given for each route:
+        'MODIFY_QUERY_WITH_HISTORY': This route is for single file searches defined by the user input. This will be for individual files. Examples of questions that fall under this route include: 
+                "What is the prescription drug compensation for the BCBSSC network?", 
+                "What is the definition of Specialty Drugs?", 
+                "What are the drug prices for caremark in 2024?", 
+                "What are the brand rates for CVS Specialty drugs in 2023"
+        'PARSE_SEARCH_QUERY': This route is for global searches based on the user input. This will be for multiple files. Examples of questions that fall under this route include: 
+                "List all contracts with effective date in 2024", 
+                "List all contracts that mention flu vaccines", 
+                "Give me Walgreens contracts"
+    For any ambiguous queries that might fit either route, default to 'MODIFY_QUERY_WITH_HISTORY'. Only respond with one of the routes defined and explained.`
     `
 }
