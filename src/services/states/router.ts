@@ -14,6 +14,7 @@ export class LLMRouter {
         const completion = await openaiClient.getChatCompletions(
             deployment,
             [RouterQuery, {role: 'user', content: callData.query}],
+            { temperature: 0.0 }
         )
 
         if(completion.choices.length > 0){
