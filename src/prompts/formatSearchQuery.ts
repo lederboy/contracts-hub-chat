@@ -7,8 +7,8 @@ export const AnswerQueryFromSearchPrompt: ChatRequestSystemMessage =
     {
         role: 'system',
         content: `
-            You are given a prompt that has a query that you must answer and a mapping from contract name to contract content. You must use the contract content to answer the query.
-            Here is an example:
+            You are given a prompt that has a query that you must answer and a mapping from contract name to contract content. You must use the contract content to answer the query. Finally, Output all text in markdown.
+            Here is an example: 
 
             Query:
                 What are termination conditions for CVS contracts?
