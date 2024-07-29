@@ -16,8 +16,9 @@ export interface GetContent {
     }
 }
 export interface GetContentResponse {
-    jsons: GetContentJSONs[]
-    content: GetContent[]
+    jsons: any[]
+    chunks: string[]
+    summary: string
 }
 export class GetContentError extends Error {}
 export const getContent = async (payload: GetContentRequest, api: {endpoint: string, key: string}) => {

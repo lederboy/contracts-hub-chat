@@ -1,21 +1,25 @@
 import { OpenAIClient } from "@azure/openai";
-import { GetDocumentFromSummaryCallData, ModifyQueryCallData } from "./states";
+import { ModifyQueryCallData, ParseQueryCallData, SearchCallData } from "./states";
 import { ModifyQueryWithHistoryPrompt } from "../../prompts/modifyQuery";
+import { ChatSession } from "../session";
 
 
 
 export class ModifyQueryWithHistory {
-    static async run(callData: ModifyQueryCallData, openaiClient: OpenAIClient, deployment: string): Promise<GetDocumentFromSummaryCallData> {
-        if(callData.session.chatHistory.length == 0){
-            return {
-                state: 'GET_DOCUMENT_FROM_SUMMARY',
-                session: callData.session,
-                modifiedQuery: callData.query
-            }
-        }else{
+    static formatUser(query:string, session: ChatSession): string {
+        return `
+        context:
+            ${JSON.stringify(session.chatHistory)}
+        query:
+            ${query}
+            
+        `
+    }
+    static async run(callData: ModifyQueryCallData, openaiClient: OpenAIClient, deployment: string): Promise<SearchCallData | ParseQueryCallData> {
+        if(callData.session.documents.length > 0){
             const completion = await openaiClient.getChatCompletions(
                 deployment,
-                [ModifyQueryWithHistoryPrompt, {role: 'user', content: callData.query}]
+                [ModifyQueryWithHistoryPrompt, {role: 'user', content: this.formatUser(callData.query, callData.session)}]
             )
             if(completion.choices.length > 0){
                 let choice = completion.choices[0]
@@ -23,15 +27,23 @@ export class ModifyQueryWithHistory {
                     let message = choice.message
                     if(message.content){
                         return {
-                            state: 'GET_DOCUMENT_FROM_SUMMARY',
+                            state: 'SEARCH',
                             session: callData.session,
-                            modifiedQuery: message.content
+                            documents: callData.session.documents,
+                            query: message.content
                         }
                     }
                 }
             }
-            throw Error('Error Completing Query')
-               
+        }else{
+            return {
+                state: "PARSE_SEARCH_QUERY",
+                query: callData.query,
+                session: callData.session
+            }
         }
+        
+        throw Error('Error Completing Query')
+            
     }
 }

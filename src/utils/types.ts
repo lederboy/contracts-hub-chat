@@ -9,4 +9,5 @@ export interface ApiCredentials {
     key: string
     contentEndpoint: string
     summaryEndpoint: string
+    searchEndpoint: string
 }
