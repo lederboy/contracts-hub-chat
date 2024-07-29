@@ -7,6 +7,7 @@ import { ParseSearchQuery } from "./states/parseQuery";
 import { Search } from "./states/search";
 import { AnswerQueryFromSearch } from "./states/answerFromSearch";
 import { GetDocuments } from "./states/getDocuments";
+import { NeedsMoreContext } from "./states/needsMoreContext";
 
 export class WorkflowError extends Error {}
 
@@ -25,8 +26,11 @@ export class ChatWorkflow {
         if(callData.state === "MODIFY_QUERY_WITH_HISTORY"){
             return await ModifyQueryWithHistory.run(callData, this.openaiClient, this.openaiDeployments.completions)
         }
-        if(callData.state === "PARSE_SEARCH_QUERY"){
+        else if(callData.state === "PARSE_SEARCH_QUERY"){
             return await ParseSearchQuery.run(callData, this.openaiClient, this.openaiDeployments.completions)
+        }
+        else if(callData.state === "NEEDS_MORE_CONTEXT"){
+            return await NeedsMoreContext.run(callData, this.openaiClient, this.openaiDeployments.completions)
         }
         else if(callData.state === "GET_DOCUMENTS"){
             return await GetDocuments.run(callData, {

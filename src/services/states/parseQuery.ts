@@ -1,5 +1,5 @@
 import { OpenAIClient } from "@azure/openai"
-import {GetDocumentsCallData,ParseQueryCallData} from "./states"
+import {GetDocumentsCallData,NeedsMoreContextCallData,ParseQueryCallData} from "./states"
 import { FilterQuery, SelectQuery } from "../../prompts/searchQuery"
 import { Search } from "./search"
 import { SearchRequest } from "../../apis/search"
@@ -12,16 +12,14 @@ import { SearchRequest } from "../../apis/search"
 
 
 export class ParseSearchQuery {
-    static async run(callData: ParseQueryCallData, openaiClient: OpenAIClient, deployment: string): Promise<GetDocumentsCallData> {
+    static async run(callData: ParseQueryCallData, openaiClient: OpenAIClient, deployment: string): Promise<GetDocumentsCallData | NeedsMoreContextCallData> {
     
-         const completion = await openaiClient.getChatCompletions(
+        const completion = await openaiClient.getChatCompletions(
                     deployment,
                     [FilterQuery, {role: 'user', content: callData.query}],
                     {responseFormat: {type: "json_object"}}
         )
-        let responses: SearchRequest = {
-            searchParams: []
-        }
+        let searchParams = []
         if(completion.choices.length > 0){
             let choice = completion.choices[0]
             if(choice.message){
@@ -29,18 +27,28 @@ export class ParseSearchQuery {
                 if(message.content){
                     const json = JSON.parse(message.content)
                     if("searchParams" in json){
-                        responses.searchParams = json.searchParams
+                        searchParams = json.searchParams
                     }
                 }
             }
         }
-        return {
-            state: 'GET_DOCUMENTS',
-            session: callData.session,
-            query: callData.query,
-            parsedQuery: {
-                searchParams: responses.searchParams,
+        if(searchParams.length > 0){
+            return {
+                state: 'GET_DOCUMENTS',
+                session: callData.session,
+                query: callData.query,
+                parsedQuery: {
+                    searchParams: searchParams,
+                }
             }
         }
+        else{
+            return {
+                state: 'NEEDS_MORE_CONTEXT',
+                session: callData.session,
+                query: callData.query,
+            }
+        }
+
     }
 }

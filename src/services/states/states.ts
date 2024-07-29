@@ -36,7 +36,10 @@ export interface ModifyQueryCallData extends BaseCallData {
     state: 'MODIFY_QUERY_WITH_HISTORY'
     query: string
 }
-
+export interface  NeedsMoreContextCallData extends BaseCallData {
+    state: 'NEEDS_MORE_CONTEXT',
+    query: string
+}
 export interface FinalizeCallData extends BaseCallData {
     state: 'FINALIZE',
     query: string
@@ -55,4 +58,5 @@ export type CallData =
                        AnswerFromSearchCallData       |
                        ModifyQueryCallData            |
                        FinalizeCallData               |
+                       NeedsMoreContextCallData       |
                        CompleteCallData
