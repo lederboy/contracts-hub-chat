@@ -17,7 +17,7 @@ export class SessionManager {
     constructor(containerClient: ContainerClient){
         this.containerClient = containerClient
     }
-    async loadSession(sessionId: string): Promise<ChatSession>{
+    async loadSession(sessionId: string, documentNames?: string[]): Promise<ChatSession>{
         const blobClient = this.containerClient.getBlobClient(`${this.sessionPrefix}/${sessionId}.json`)
         if(await blobClient.exists()){
             const sessionStr = (await blobClient.downloadToBuffer()).toString()
@@ -26,7 +26,7 @@ export class SessionManager {
             return {
                 sessionId: sessionId,
                 chatHistory: [],
-                documents: []
+                documents: documentNames ? documentNames : [] 
             }
         }
     }
