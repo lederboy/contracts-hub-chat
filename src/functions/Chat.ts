@@ -6,6 +6,8 @@ import { ContainerClient, StorageSharedKeyCredential } from "@azure/storage-blob
 import { CallData } from "../services/states/states";
 import { initWorkflow } from "../utils/init";
 
+
+
 export async function Chat(request: HttpRequest, context: InvocationContext): Promise<HttpResponseInit> {
     const sessionManager = new SessionManager(
         new ContainerClient(
