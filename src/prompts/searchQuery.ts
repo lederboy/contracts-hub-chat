@@ -138,5 +138,11 @@ export const FilterQuery: ChatRequestSystemMessage = {
                 }
             ]
         }
+        
+        input: "list all contracts that have vaccines"
+        output: {
+            "searchParams": [
+            ]
+        }
         ` 
 }
