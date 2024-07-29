@@ -21,6 +21,8 @@ export interface GetContentResponse {
     summary: string
 }
 export class GetContentError extends Error {}
+
+
 export const getContent = async (payload: GetContentRequest, api: {endpoint: string, key: string}) => {
     const res = await axios.post<GetContentResponse>(api.endpoint, payload, {
         headers: {

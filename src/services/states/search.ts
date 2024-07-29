@@ -18,8 +18,13 @@ export class Search {
         const vectorSearchResponses = await Promise.all(vectorSearchRequests)
         for (let i = 0; i < documents.length; i++){
             const vecSearchRes = vectorSearchResponses[i]
-            const jsonResponses = vecSearchRes.jsons
-            jsonsPerContract[documents[i]] = JSON.stringify(jsonResponses)
+            if (documents.length === 1){
+                jsonsPerContract[documents[i]] = JSON.stringify(vecSearchRes)
+            } else {
+                const jsonResponses = vecSearchRes.jsons
+                jsonsPerContract[documents[i]] = JSON.stringify(jsonResponses)
+            }
+            
         }
         return {
             state: "ANSWER_FROM_SEARCH",

@@ -4,7 +4,7 @@ import {v4 as uuidv4} from 'uuid';
 import { SessionManager } from "../services/session";
 import { ContainerClient, StorageSharedKeyCredential } from "@azure/storage-blob";
 import { CallData } from "../services/states/states";
-import { initWorkflow } from "../utils/init";
+import { initWorkflowSearch } from "../utils/init";
 
 
 export async function SearchFile(request: HttpRequest, context: InvocationContext): Promise<HttpResponseInit> {
@@ -17,7 +17,7 @@ export async function SearchFile(request: HttpRequest, context: InvocationContex
             )
         )
     )
-    const chatWorkflow = initWorkflow(
+    const chatWorkflow = initWorkflowSearch(
         {
             endpoint: process.env.OPENAI_API_ENDPOINT!, 
             key: process.env.OPENAI_API_KEY!
