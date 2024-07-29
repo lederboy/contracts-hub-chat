@@ -1,6 +1,6 @@
 import { OpenAIClient } from "@azure/openai"
 import {GetDocumentsCallData,NeedsMoreContextCallData,ParseQueryCallData} from "./states"
-import { FilterQuery, SelectQuery } from "../../prompts/searchQuery"
+import { FilterQuery} from "../../prompts/searchQuery"
 import { Search } from "./search"
 import { SearchRequest } from "../../apis/search"
 
