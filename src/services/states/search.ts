@@ -8,12 +8,18 @@ import { SearchCallData, AnswerFromSearchCallData, ModifyQueryCallData } from ".
 export class Search {
     static async run(callData: SearchCallData, creds: {key: string, searchEndpoint: string, contentEndpoint: string}): Promise<AnswerFromSearchCallData>{
         const jsonsPerContract: Record<string, string> = {}
-
-
-        for await(let doc of callData.documents){
-            const vecSearchRes = await getContent({document: doc.replace('.pdf',''), query: callData.query}, {key: creds.key, endpoint: creds.contentEndpoint})
+        const documents = callData.documents
+        const vectorSearchRequests = documents.map(async doc => {
+            return await getContent({
+                document: doc.replace('.pdf',''), query: callData.query}, 
+                {key: creds.key, endpoint: creds.contentEndpoint}
+            )
+        })
+        const vectorSearchResponses = await Promise.all(vectorSearchRequests)
+        for (let i = 0; i < documents.length; i++){
+            const vecSearchRes = vectorSearchResponses[i]
             const jsonResponses = vecSearchRes.jsons
-            jsonsPerContract[doc] = JSON.stringify(jsonResponses)
+            jsonsPerContract[documents[i]] = JSON.stringify(jsonResponses)
         }
         return {
             state: "ANSWER_FROM_SEARCH",

@@ -1,5 +1,5 @@
 import { GetContentResponse } from "../../apis/content"
-import { SearchResponse } from "../../apis/search"
+import { SearchRequest, SearchResponse } from "../../apis/search"
 import { ChatSession } from "../session"
 
 export interface BaseCallData {
@@ -18,10 +18,7 @@ export interface ParseQueryCallData extends BaseCallData {
 export interface GetDocumentsCallData extends BaseCallData {
     state: "GET_DOCUMENTS",
     query: string
-    parsedQuery:{
-        searchParams: Record<string,any>[],
-        selectParams: Record<string, any>[]
-    } //TODO add definition
+    parsedQuery: SearchRequest
 }
 export interface SearchCallData extends BaseCallData {
     state: "SEARCH",
