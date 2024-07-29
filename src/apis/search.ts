@@ -2,10 +2,8 @@ import axios from 'axios'
 
 export interface SearchRequest {
     searchParams: Record<string,any>[],
-    selectParams: Record<string,any>[]
 }
 export interface SearchResponse {
-    columns: Record<string, string[]>
     documents: string[]
 }
 export class SearchError extends Error {}
