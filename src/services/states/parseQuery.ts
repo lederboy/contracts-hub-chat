@@ -1,6 +1,6 @@
 import { OpenAIClient } from "@azure/openai"
 import {GetDocumentsCallData,NeedsMoreContextCallData,ParseQueryCallData} from "./states"
-import { FilterQuery, SelectQuery } from "../../prompts/searchQuery"
+import { FilterQuery} from "../../prompts/searchQuery"
 import { Search } from "./search"
 import { SearchRequest } from "../../apis/search"
 
@@ -12,7 +12,7 @@ import { SearchRequest } from "../../apis/search"
 
 
 export class ParseSearchQuery {
-    static async run(callData: ParseQueryCallData, openaiClient: OpenAIClient, deployment: string): Promise<GetDocumentsCallData | NeedsMoreContextCallData> {
+    static async run(callData: ParseQueryCallData, openaiClient: OpenAIClient, deployment: string): Promise<GetDocumentsCallData> {
     
         const completion = await openaiClient.getChatCompletions(
                     deployment,
@@ -32,23 +32,14 @@ export class ParseSearchQuery {
                 }
             }
         }
-        if(searchParams.length > 0){
-            return {
-                state: 'GET_DOCUMENTS',
-                session: callData.session,
-                query: callData.query,
-                parsedQuery: {
-                    searchParams: searchParams,
-                }
+        return {
+            state: 'GET_DOCUMENTS',
+            session: callData.session,
+            query: callData.query,
+            parsedQuery: {
+                searchParams: searchParams,
             }
         }
-        else{
-            return {
-                state: 'NEEDS_MORE_CONTEXT',
-                session: callData.session,
-                query: callData.query,
-            }
-        }
-
+        
     }
 }

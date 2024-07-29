@@ -1,45 +1,5 @@
 import { ChatRequestSystemMessage } from "@azure/openai";
 
-export const SelectQuery: ChatRequestSystemMessage = {
-    role: "system",
-    content: ` Given a search query extract the relevant fields to select from in a json
-    
-    Here is the interface definition you are going to use
-    interface SelectParam {
-        fieldName: string
-    }
-    interface Output: {
-        selectParams: SelectParam[]
-    }
-
-    Here are the available fieldNames: 
-    - medicareContract: ONLY if query specifies medicare
-    - effectiveDate: the date the contract becomes effective
-    - chainOrNCPDPCodes: chain code or NCPDP code
-
-
-
-    Here are the examples that highlight how to use this interface
-
-    input: "Give me all chain codes and fileNames from 2024 medicare contracts
-    output: {
-        "selectParams": [
-            {"fieldName": "chainOrNCPDPCodes"},
-        ]
-    }
-    input: "Give me all contract contacts from CVS contracts
-    output: {
-        "selectParams": [
-            {"fieldName": "contractContact"},
-        ]
-    }
-    input: "List all CVS contracts"
-    output: {
-        "selectParams": [
-        ]
-    }
-    `
-}
 export const FilterQuery: ChatRequestSystemMessage = {
     role: "system",
     content: ` 
@@ -165,6 +125,23 @@ export const FilterQuery: ChatRequestSystemMessage = {
                     "value": "2023"
                 
                 }
+            ]
+        }
+
+        input: "Give me all chain codes with an active medicare agreement"
+        output: {
+            "searchParams": [
+                {
+                    "fieldName": "medicareContract",
+                    "operator": "==",
+                    "value": "true"
+                }
+            ]
+        }
+        
+        input: "list all contracts that have vaccines"
+        output: {
+            "searchParams": [
             ]
         }
         ` 

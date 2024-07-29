@@ -60,7 +60,11 @@ export async function Chat(request: HttpRequest, context: InvocationContext): Pr
                 headers: {
                     'Content-Type': 'application/json'
                 },
-                body: JSON.stringify(callData)
+                body: JSON.stringify({
+                    llmResponse: 'Unfortunately I was unable to fufill your response',
+                    callData: callData,
+                    error: err
+                })
             }
         }
     }
