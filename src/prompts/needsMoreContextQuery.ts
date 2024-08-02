@@ -9,7 +9,6 @@ export const NeedsMoreContextQuery: ChatRequestSystemMessage = {
         - effectiveDate: the date the contract becomes effective
         - chain code: chain code or NCPDP code
         - company: company of interest
-
         You must explain to the user in a sicinct manner why the query is lacking context.
 
     `

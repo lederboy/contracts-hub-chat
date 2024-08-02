@@ -40,6 +40,13 @@ export interface AnswerFromSearchCallData extends BaseCallData {
     searchResponse: Record<string, string>
 }
 
+export interface SearchCallDataIndex extends BaseCallData {
+    state: "SEARCH_WITH_INDEXES"
+    query: string
+    documents: string[]
+    searchResponse: Record<string, string>,
+    override: boolean
+}
 export interface AnswerFromSearchCallDataIndex extends BaseCallData {
     state: "ANSWER_FROM_SEARCH"
     query: string
@@ -47,6 +54,8 @@ export interface AnswerFromSearchCallDataIndex extends BaseCallData {
     searchResponse: Record<string, string>,
     override: boolean
 }
+
+
 export interface ModifyQueryCallData extends BaseCallData {
     state: 'MODIFY_QUERY_WITH_HISTORY'
     query: string
@@ -54,7 +63,8 @@ export interface ModifyQueryCallData extends BaseCallData {
 
 export interface SearchIndexesCallData extends BaseCallData {
     state: 'SEARCH_WITH_INDEXES'
-    query: string
+    query: string,
+    searchResponse: {[key: string]: string;}
 }
 
 
@@ -87,6 +97,7 @@ export type CallData =
                        GetDocumentsCallData           |
                        AnswerFromSearchCallData       |
                        AnswerFromSearchCallDataIndex  |
+                       SearchCallDataIndex            |
                        ModifyQueryCallData            |
                        FinalizeCallData               |
                        NeedsMoreContextCallData       |

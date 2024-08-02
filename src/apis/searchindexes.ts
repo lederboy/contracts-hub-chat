@@ -16,13 +16,13 @@ function removeSearchStrings(arr:any) {
   
 
 
-  function replaceScoreChunksKey(arr: any) {
+  function replaceScoreChunksKey(arr: any, suffix: string) {
     return arr.map((dict: { [x: string]: any; hasOwnProperty: (arg0: string) => any; }) => {
         const newDict: any = {};
         for (const key in dict) {
             if (dict.hasOwnProperty(key)) {
                 // Check if the key is "score_chunks" and replace it with "score"
-                const newKey = key === "score_chunks" ? "score" : key;
+                const newKey = key === `score${suffix}` ? "score" : key;
                 newDict[newKey] = dict[key];
             }
         }
@@ -187,15 +187,25 @@ export async function VerifySearch(searchRequest: string) {
     }  
     const data_searchResults: any = await searchResults.json();
     const data_chunkResults: any = await chunkResults.json();
-    const flattenedSummary = await Promise.all(  
-      data_searchResults.value.map((summ: any) => flattenCaptions(summ, '_summary'))  
-    );  
-    const flattenedChunks = await Promise.all(  
-      data_chunkResults.value.map((chunk: any) => flattenCaptions(chunk, '_chunks'))  
-    );  
-    const joinedData_ = await innerJoin(flattenedChunks, flattenedSummary, 'fileName_chunks', 'fileName_summary');
-    const joinedData = await removeSearchStrings(joinedData_);
-    const outputArray = await replaceScoreChunksKey(joinedData);
+
+    const flattenedSummary = await Promise.all(
+      data_searchResults.value.map((summ: any) => flattenCaptions(summ, '_summary'))
+    );   
+    let outputArray;
+
+    if (data_chunkResults.value.length === 0) {
+      // If data_chunkResults is empty, only process data_searchResults
+      const joinedData = await removeSearchStrings(flattenedSummary);
+      outputArray = await replaceScoreChunksKey(joinedData, '_summary');
+    } else {
+      // Normal process if data_chunkResults is not empty
+      const flattenedChunks = await Promise.all(
+        data_chunkResults.value.map((chunk: any) => flattenCaptions(chunk, '_chunks'))
+      );
+      const joinedData_ = await innerJoin(flattenedChunks, flattenedSummary, 'fileName_chunks', 'fileName_summary');
+      const joinedData = await removeSearchStrings(joinedData_);
+      outputArray = await replaceScoreChunksKey(joinedData, '_chunks');
+    }
 
     const uniqueArray = await getUniqueValues(outputArray, ["fileName_chunks", "content_chunks"]);
 

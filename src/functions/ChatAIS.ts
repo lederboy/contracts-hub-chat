@@ -14,7 +14,8 @@ const substrings = [
     "Agreement End Date",
     "Vaccine List Available",
     "Chain Code",
-    "Active Status"
+    "Active Status",
+    "Active"
 ];
 
 const normalize = (input: string): string => {
@@ -48,9 +49,11 @@ export async function ChatAIS(request: HttpRequest, context: InvocationContext):
         }
     )
 
-    const chatSesh = ChatSessionSchemaAIS.parse(await request.json())
-    let sessionId = ''
+    const chatSesh = ChatSessionSchemaAIS.parse(await request.json());
+    let sessionId = chatSesh.sessionId;
+    let history_check = false;
     if(sessionId){
+        history_check = true
         context.log({sessionId: sessionId, status: 'usingExistingSession'})
     }else{
         sessionId = uuidv4()
@@ -58,12 +61,14 @@ export async function ChatAIS(request: HttpRequest, context: InvocationContext):
     }
     const session = await sessionManager.loadSession(sessionId)
     const normalizedStr = normalize(chatSesh.query);
-    const containsAnySubstring = substrings.some(substring => normalizedStr.includes(normalize(substring)));
+    // const containsAnySubstring = substrings.some(substring => normalizedStr.includes(normalize(substring)));
+    // const containsAnySubstring = history_check? 'MODIFY_QUERY_WITH_HISTORY' : 'SEARCH_WITH_METADATA'
+
 
     let callData: CallData = {
         session: session, 
         query: chatSesh.query, 
-        state: containsAnySubstring ? 'SEARCH_WITH_METADATA':'SEARCH_WITH_INDEXES' 
+        state: history_check? 'MODIFY_QUERY_WITH_HISTORY' : 'SEARCH_WITH_METADATA'
     }
     while(callData.state !== "COMPLETE"){
         try{
@@ -80,6 +85,7 @@ export async function ChatAIS(request: HttpRequest, context: InvocationContext):
             }
         }
     }
+    await sessionManager.saveSession(callData.session)
     return {
         headers: {
             'Content-Type': 'application/json'

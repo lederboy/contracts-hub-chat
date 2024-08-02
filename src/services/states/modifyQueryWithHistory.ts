@@ -18,8 +18,9 @@ export class ModifyQueryWithHistory {
     static async run(callData: ModifyQueryCallData, openaiClient: OpenAIClient, deployment: string): Promise<SearchCallData | ParseQueryCallData> {
         if(callData.session.documents.length > 0){
             const completion = await openaiClient.getChatCompletions(
-                deployment,
-                [ModifyQueryWithHistoryPrompt, {role: 'user', content: this.formatUser(callData.query, callData.session)}]
+                'gpt-35-turbo',
+                [ModifyQueryWithHistoryPrompt, {role: 'user', content: this.formatUser(callData.query, callData.session)}],
+                {temperature: 0.0}
             )
             if(completion.choices.length > 0){
                 let choice = completion.choices[0]
