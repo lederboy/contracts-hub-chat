@@ -5,6 +5,7 @@ import { ChatSession } from "../session"
 export interface BaseCallData {
     session: ChatSession
 }
+
 export interface LLMRouterCallData extends BaseCallData {
     state: "LLM_ROUTER",
     query: string
@@ -26,16 +27,42 @@ export interface SearchCallData extends BaseCallData {
     documents: string[]
 }
 
+export interface AnswerFromSearchIndexCallData extends BaseCallData {
+    state: "ANSWER_FROM_SEARCH"
+    query: string
+    searchResponse: Record<string, string>
+}
+
 export interface AnswerFromSearchCallData extends BaseCallData {
     state: "ANSWER_FROM_SEARCH"
     query: string
     documents: string[]
     searchResponse: Record<string, string>
 }
+
+export interface AnswerFromSearchCallDataIndex extends BaseCallData {
+    state: "ANSWER_FROM_SEARCH"
+    query: string
+    documents: string[]
+    searchResponse: Record<string, string>,
+    override: boolean
+}
 export interface ModifyQueryCallData extends BaseCallData {
     state: 'MODIFY_QUERY_WITH_HISTORY'
     query: string
 }
+
+export interface SearchIndexesCallData extends BaseCallData {
+    state: 'SEARCH_WITH_INDEXES'
+    query: string
+}
+
+
+export interface SearchMetaDataCallData extends BaseCallData {
+    state: 'SEARCH_WITH_METADATA'
+    query: string
+}
+
 export interface  NeedsMoreContextCallData extends BaseCallData {
     state: 'NEEDS_MORE_CONTEXT',
     query: string
@@ -47,6 +74,7 @@ export interface FinalizeCallData extends BaseCallData {
     llmResponse: string
 }
 
+
 export interface CompleteCallData extends BaseCallData {
     state: 'COMPLETE'
     llmResponse: string
@@ -54,8 +82,11 @@ export interface CompleteCallData extends BaseCallData {
 export type CallData =
                        ParseQueryCallData             |
                        SearchCallData                 |
+                       SearchIndexesCallData          |
+                       SearchMetaDataCallData         |
                        GetDocumentsCallData           |
                        AnswerFromSearchCallData       |
+                       AnswerFromSearchCallDataIndex  |
                        ModifyQueryCallData            |
                        FinalizeCallData               |
                        NeedsMoreContextCallData       |
