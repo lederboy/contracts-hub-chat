@@ -74,24 +74,16 @@ function generateDictionary(
 export class SearchMetadata {
     static async run(callData: SearchMetaDataCallData): Promise<AnswerFromSearchCallDataIndex | SearchCallDataIndex | NeedsMoreContextCallData> {
         const data_response: Data = await VerifySearch_2(callData.query);
-        if (data_response.length === 0) {
-            return  {
-                state: 'NEEDS_MORE_CONTEXT',
-                session: callData.session,
-                query: callData.query
-            }
-        } else {
-            const normalizedDictionaries = normalizeScores(data_response, 'score');
-            const filteredData = filterByKey(normalizedDictionaries, 0.5, 'score');
-            const { resultDictionary, document_list } = generateDictionary(filteredData, 'ContractFileName', {});
-            return {
-                state: "SEARCH_WITH_INDEXES",
-                searchResponse: resultDictionary,
-                session: callData.session,
-                documents: document_list,
-                query: callData.query,
-                override: true
-            }
+        const normalizedDictionaries = normalizeScores(data_response, 'score');
+        const filteredData = filterByKey(normalizedDictionaries, 0.5, 'score');
+        const { resultDictionary, document_list } = generateDictionary(filteredData, 'ContractFileName', {});
+        return {
+            state: "SEARCH_WITH_INDEXES",
+            searchResponse: resultDictionary,
+            session: callData.session,
+            documents: document_list,
+            query: callData.query,
+            override: true
         }
     }
 }
