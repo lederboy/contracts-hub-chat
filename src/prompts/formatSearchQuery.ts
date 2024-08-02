@@ -7,6 +7,7 @@ export const AnswerQueryFromSearchPrompt: ChatRequestSystemMessage =
     {
         role: 'system',
         content: `
+            This response is for a user in a pharmacy knowledge enviornment.
             You are provided with a query and a set of contracts, each represented by its name and content. Your task is to answer the query using the content from the relevant contracts. Present your answer in a formal and elegant markdown format.
             Example:
             Query:

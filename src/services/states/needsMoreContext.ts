@@ -7,8 +7,9 @@ import { NeedsMoreContextQuery } from "../../prompts/needsMoreContextQuery";
 export class NeedsMoreContext {
     static async run(callData: NeedsMoreContextCallData, openaiClient: OpenAIClient, deployment: string): Promise<FinalizeCallData> {
         const completion = await openaiClient.getChatCompletions(
-            deployment,
-            [NeedsMoreContextQuery, {role: 'user', content: callData.query}]
+            'gpt-35-turbo',
+            [NeedsMoreContextQuery, {role: 'user', content: callData.query}],
+            {temperature: 0.0}
         )
         if(completion.choices.length > 0){
             let choice = completion.choices[0]
