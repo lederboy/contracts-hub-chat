@@ -1,6 +1,6 @@
 import { OpenAIClient } from "@azure/openai";
 import { AnswerQueryFromSearchPrompt, } from "../../prompts/formatSearchQuery";
-import { AnswerFromSearchCallData, FinalizeCallData } from "./states";
+import { AnswerFromSearchCallData, AnswerFromSearchCallDataIndex, FinalizeCallData } from "./states";
 
 
 
@@ -18,11 +18,14 @@ export class AnswerQueryFromSearch {
         
         `
     }
-    static async run(callData: AnswerFromSearchCallData, openaiClient: OpenAIClient, deployment: string): Promise<FinalizeCallData> {
-        
+    static async run(callData: AnswerFromSearchCallData, openaiClient: OpenAIClient, deployment: string, overrideDeployment: boolean = false): Promise<FinalizeCallData> {
+        if (overrideDeployment) {
+            deployment = 'gpt-35-turbo';
+        }
         const completion = await openaiClient.getChatCompletions(
             deployment,
-            [AnswerQueryFromSearchPrompt, {role: 'user', content: this.formatUserPrompt(callData.searchResponse, callData.query)}]
+            [AnswerQueryFromSearchPrompt, {role: 'user', content: this.formatUserPrompt(callData.searchResponse, callData.query)}],
+            {temperature: 0.0}
         )
 
         if(completion.choices.length > 0){
