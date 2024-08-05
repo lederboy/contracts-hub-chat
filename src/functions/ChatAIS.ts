@@ -15,7 +15,8 @@ const substrings = [
     "Vaccine List Available",
     "Chain Code",
     "Active Status",
-    "Active"
+    "Active",
+    "Company"
 ];
 
 const normalize = (input: string): string => {
@@ -60,7 +61,7 @@ export async function ChatAIS(request: HttpRequest, context: InvocationContext):
         context.log({sessionId: sessionId, status: 'createNewSession'})
     }
     const session = await sessionManager.loadSession(sessionId)
-    const normalizedStr = normalize(chatSesh.query);
+    // const normalizedStr = normalize(chatSesh.query);
     // const containsAnySubstring = substrings.some(substring => normalizedStr.includes(normalize(substring)));
     // const containsAnySubstring = history_check? 'MODIFY_QUERY_WITH_HISTORY' : 'SEARCH_WITH_METADATA'
 
