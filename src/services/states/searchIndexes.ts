@@ -30,13 +30,9 @@ function filterByKey(data: Data, threshold: number, key: keyof DataItem): DataIt
 
 function normalizeScores(dictionaries: Data, key: keyof DataItem): Data {
     if (dictionaries.length === 0) return dictionaries;
-
-    // Extract scores and ensure they are numbers
     const scores = dictionaries.map(dict => dict[key]).filter(value => typeof value === 'number') as number[];
     const minScore = Math.min(...scores);
     const maxScore = Math.max(...scores);
-
-    // Normalize the scores
     return dictionaries.map(dict => ({
         ...dict,
         [key]: ((dict[key] as number) - minScore) / (maxScore - minScore)
@@ -56,18 +52,36 @@ function generateDictionary(
         initialResult: { [key: string]: string } = {}): { resultDictionary: { [key: string]: string }, document_list: string[] } {
     let result: { [key: string]: string } = { ...initialResult };
     const document_list: string[] = [];
+    if (Object.keys(initialResult).length === 0){
+        resultDictionary.forEach(dict => {
+            let dict1: { [key: string]: string } = {};
+            const key = dict[fileNameKey] + '.pdf';
+            const { [fileNameKey]: _, ...rest } = dict;
+            const restAsString = JSON.stringify(rest);
+            dict1[key] = restAsString;
+            result = { ...result, ...dict1 };
+            // result[key] = restAsString;
+            document_list.push(key);
+        });
+    } else{
+        const sanitizedResultKeys = Object.keys(result).map(k => k.replace(/\s/g, ''))
+    
+        resultDictionary.forEach(dict => {
+            let dict1: { [key: string]: string } = {};
+            const key = dict[fileNameKey] + '.pdf';
+            const modded_key = (dict[fileNameKey] + '.pdf').replace(/\s/g, '')
+            const { [fileNameKey]: _, ...rest } = dict;
+            const restAsString = JSON.stringify(rest);
+            dict1[key] = restAsString;
+            if (sanitizedResultKeys.includes(modded_key)) {
+                result = { ...result, ...dict1 };
+                document_list.push(key);
+            }
+        });
+    
+    }
 
-    resultDictionary.forEach(dict => {
-        let dict1: { [key: string]: string } = {};
-        const key = dict[fileNameKey] + '.pdf';
-        const { [fileNameKey]: _, ...rest } = dict;
-        const restAsString = JSON.stringify(rest);
-        dict1[key] = restAsString;
-        result = { ...result, ...dict1 };
-        // result[key] = restAsString;
-        document_list.push(key);
-    });
-
+    
     return { resultDictionary: result, document_list };
 }
 
@@ -75,22 +89,69 @@ export class SearchMetadata {
     static async run(callData: SearchMetaDataCallData): Promise<AnswerFromSearchCallDataIndex | SearchCallDataIndex | NeedsMoreContextCallData> {
         const data_response: Data = await VerifySearch_2(callData.query);
         const normalizedDictionaries = normalizeScores(data_response, 'score');
-        const filteredData = filterByKey(normalizedDictionaries, 0.5, 'score');
-        const { resultDictionary, document_list } = generateDictionary(filteredData, 'ContractFileName', {});
-        return {
-            state: "SEARCH_WITH_INDEXES",
-            searchResponse: resultDictionary,
-            session: callData.session,
-            documents: document_list,
-            query: callData.query,
-            override: true
+        // const filteredData = filterByKey(normalizedDictionaries, 0.3, 'score');
+        const { resultDictionary, document_list } = generateDictionary(normalizedDictionaries, 'ContractFileName', {});
+        if (Object.keys(resultDictionary).length <= 2){
+            return {
+                state: "SEARCH_WITH_INDEXES",
+                searchResponse: resultDictionary,
+                session: callData.session,
+                documents: document_list,
+                query: callData.query,
+                override: true
+            }
+
+        }else{
+            return {
+                state: "ANSWER_FROM_SEARCH",
+                searchResponse: resultDictionary,
+                session: callData.session,
+                documents: document_list,
+                query: callData.query,
+                override: true
+            }
         }
+        
     }
 }
 
+function removeBreakLines(str: string): string {
+    return str.replace(/\s+/g, '');
+  }
+
+function normalizeContent(content: string): string {
+    // List of common words to exclude
+    const commonWords = ["of", "the", "at", "and", "a", "an", "in", "on", "to"];
+    
+    // Remove line breaks and convert to lowercase
+    let normalized = content.replace(/\s+/g, ' ').toLowerCase();
+    
+    // Split the content into words, filter out common words, and join back into a string
+    normalized = normalized.split(' ').filter(word => !commonWords.includes(word)).join(' ');
+
+    return normalized;
+}
+
+function getUniqueDictionaries(dictionaries: Dictionary[]): Dictionary[] {
+    const uniqueSet = new Set<string>();
+    const uniqueDictionaries: Dictionary[] = [];
+    for (const dict of dictionaries) {
+        const normalizedContent = normalizeContent(dict.content_table);
+        const normalizedContentChunks = removeBreakLines(normalizedContent);
+        const uniqueKey = `${normalizedContentChunks}|${dict.fileName_table}`;
+        if (!uniqueSet.has(uniqueKey)) {
+            uniqueSet.add(uniqueKey);
+            uniqueDictionaries.push(dict);
+        }
+    }
+  
+    return uniqueDictionaries;
+  }
+  
+
 export class SearchIndexes {
     static async run(callData: SearchIndexesCallData): Promise<AnswerFromSearchCallDataIndex | NeedsMoreContextCallData> {
-        const data_response: Data = await VerifySearch(callData.query);
+        const data_response: Data = await VerifySearch(callData.query, Object.keys(callData.searchResponse));
         
         if (data_response.length === 0) {
             return  {
@@ -99,15 +160,10 @@ export class SearchIndexes {
                 query: callData.query
             }
         } else {
-            //limit content for chunks
-            // const normalizedDictionaries_sum = normalizeScores(data_response, 'score_summary');
-            // const filteredData_sum = filterByKey(normalizedDictionaries_sum, 0.83, 'score_summary');
-            // const { resultDictionary: resultDictionary_sum, document_list: document_list_sum } = generateDictionary(filteredData_sum, 'fileName_summary', callData.searchResponse);
-
-
             const normalizedDictionaries = normalizeScores(data_response, 'score');
-            const filteredData = filterByKey(normalizedDictionaries, 0.8, 'score');
-            const { resultDictionary: resultDictionary, document_list: document_list } = generateDictionary(filteredData, 'fileName_chunks', callData.searchResponse);
+            // const uniqueDictionaries = getUniqueDictionaries(normalizedDictionaries);
+            // const filteredData = filterByKey(normalizedDictionaries, 0.5, 'score');
+            const { resultDictionary: resultDictionary, document_list: document_list } = generateDictionary(normalizedDictionaries, 'fileName_summary', callData.searchResponse);
             return {
                 state: "ANSWER_FROM_SEARCH",
                 searchResponse: resultDictionary,

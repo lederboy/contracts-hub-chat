@@ -1,9 +1,12 @@
 import { OpenAIClient } from "@azure/openai";
 import { AnswerQueryFromSearchPrompt, } from "../../prompts/formatSearchQuery";
 import { AnswerFromSearchCallData, AnswerFromSearchCallDataIndex, FinalizeCallData } from "./states";
+import { encode } from 'gpt-3-encoder';
 
-
-
+function isTokenCountExceedingLimit(text: string, limit: number = 4096): boolean {
+    const tokens = encode(text);
+    return tokens.length > limit;
+}
 
 
 
@@ -19,12 +22,19 @@ export class AnswerQueryFromSearch {
         `
     }
     static async run(callData: AnswerFromSearchCallData, openaiClient: OpenAIClient, deployment: string, overrideDeployment: boolean = false): Promise<FinalizeCallData> {
-        if (overrideDeployment) {
+        const response_ = this.formatUserPrompt(callData.searchResponse, callData.query)
+        const tokenLimit = 4096;
+        const isExceeding = isTokenCountExceedingLimit(response_, tokenLimit);
+        
+        if (overrideDeployment && isExceeding) {
+            deployment = 'gpt-4o';
+        }else{
             deployment = 'gpt-35-turbo';
         }
+        console.log(deployment)
         const completion = await openaiClient.getChatCompletions(
             deployment,
-            [AnswerQueryFromSearchPrompt, {role: 'user', content: this.formatUserPrompt(callData.searchResponse, callData.query)}],
+            [AnswerQueryFromSearchPrompt, {role: 'user', content: response_}],
             {temperature: 0.0}
         )
 
