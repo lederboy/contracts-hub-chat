@@ -51,7 +51,8 @@ export async function ChatAIS(request: HttpRequest, context: InvocationContext):
     )
 
     const chatSesh = ChatSessionSchemaAIS.parse(await request.json());
-    let sessionId = chatSesh.sessionId;
+    // let sessionId = chatSesh.sessionId;
+    let sessionId = ''
     let history_check = false;
     if(sessionId){
         history_check = true

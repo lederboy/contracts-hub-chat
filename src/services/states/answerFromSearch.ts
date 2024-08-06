@@ -8,6 +8,37 @@ function isTokenCountExceedingLimit(text: string, limit: number = 4096): boolean
     return tokens.length > limit;
 }
 
+interface CallData {
+    documents: string[];
+}
+
+function removeSpaces(input: string): string {
+    return input.replace(/\s+/g, '');
+}
+
+function processDocuments(callData: CallData, response: string): string[] {
+    // Create a mapping of processed document names to original document names
+    const documentMap: Record<string, string> = {};
+
+    callData.documents.forEach(doc => {
+        documentMap[removeSpaces(doc)] = doc;
+    });
+
+    // Remove spaces from the response string
+    const processedResponse = removeSpaces(response);
+
+    // Create an array to store matching original document names
+    const matchingDocuments: string[] = [];
+
+    // Check if the processed response contains any of the processed documents
+    for (const processedDoc in documentMap) {
+        if (processedResponse.includes(processedDoc)) {
+            matchingDocuments.push(documentMap[processedDoc]);
+        }
+    }
+
+    return matchingDocuments;
+}
 
 
 export class AnswerQueryFromSearch {
@@ -42,11 +73,31 @@ export class AnswerQueryFromSearch {
            let choice = completion.choices[0]
            if(choice.message){
             let message = choice.message
+
             if(message.content){
+                const regex = /(\d+\.\s)(.*?\.pdf)/g;
+                const pdfPattern = /<([^>]+\.pdf)>/g;
+                let filenames: string[] = [];
+                let match;
+
+                while ((match = regex.exec(message.content)) !== null) {
+                    filenames.push(match[2]);
+                }
+                while ((match = pdfPattern.exec(message.content)) !== null) {
+                    filenames.push(match[1]);
+                }
+                if (filenames.length === 0){
+                    // const matchingDocuments = processDocuments(callData, message.content);
+                    filenames  = [...processDocuments(callData, message.content), ...filenames]
+                }
+                const uniqueFilenames = Array.from(new Set(filenames));
+                
+
+
                 return {
                     state: 'FINALIZE',
                     session: callData.session,
-                    documents: callData.documents,
+                    documents: uniqueFilenames,
                     query: callData.query,
                     llmResponse: message.content
                 }

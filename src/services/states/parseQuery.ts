@@ -15,7 +15,7 @@ export class ParseSearchQuery {
     static async run(callData: ParseQueryCallData, openaiClient: OpenAIClient, deployment: string): Promise<GetDocumentsCallData> {
     
         const completion = await openaiClient.getChatCompletions(
-                    deployment,
+                    'gpt-35-turbo',
                     [FilterQuery, {role: 'user', content: callData.query}],
                     {responseFormat: {type: "json_object"}}
         )
