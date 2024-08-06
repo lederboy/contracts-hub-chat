@@ -145,7 +145,7 @@ export async function VerifySearch_2(searchRequest: string) {
       body: summaryPayload 
     }; 
 
-  const summary_url =  process.env.AI_SEARCH_ENDPOINT! + '/indexes/metadata-index-data/docs/search?api-version=2024-05-01-preview'
+  const summary_url =  process.env.AI_SEARCH_ENDPOINT! + '/indexes/metadata-index/docs/search?api-version=2024-05-01-preview'
   const searchResults = await fetch(summary_url, summary_settings); 
   if (!searchResults.ok) {  
     throw new Error(`HTTP error! status: ${searchResults.status}`);  
