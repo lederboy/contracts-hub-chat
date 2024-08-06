@@ -90,7 +90,9 @@ export class AnswerQueryFromSearch {
                     // const matchingDocuments = processDocuments(callData, message.content);
                     filenames  = [...processDocuments(callData, message.content), ...filenames]
                 }
-                const uniqueFilenames = Array.from(new Set(filenames));
+                const cleanedFilenames: string[] = filenames.map(filename => filename.replace("**", ""));
+                const uniqueFilenames = Array.from(new Set(cleanedFilenames));
+                
                 
 
 
