@@ -5,19 +5,23 @@ import { CompleteCallData, FinalizeCallData } from "./states";
 
 export class Finalize {
     static run(callData: FinalizeCallData): CompleteCallData {
+        let document_holder = []
         for(let document of callData.documents){
-            if(!callData.session.documents.includes(document)){
-                callData.session.documents.push(document)
-            }
+            document_holder.push(document)
+            // if(!callData.session.chatHistory.documents.includes(document)){
+            //     document_holder.push(document)
+            // }
         }
+       
         callData.session.chatHistory.push(
             {
-                role: 'user',
+                direction: 'outgoing',
                 content: callData.query
             },
             {
-                role: 'assistant',
-                content: callData.llmResponse
+                direction: 'incoming',
+                content: callData.llmResponse,
+                documents: document_holder
             }
         )
         return {

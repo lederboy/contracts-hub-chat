@@ -1,9 +1,9 @@
 import { GetContentResponse } from "../../apis/content"
 import { SearchRequest, SearchResponse } from "../../apis/search"
-import { ChatSession } from "../session"
+import { ChatSession, ChatHistory_AI } from "../session"
 
 export interface BaseCallData {
-    session: ChatSession
+    session: ChatHistory_AI
 }
 
 export interface LLMRouterCallData extends BaseCallData {
@@ -61,6 +61,11 @@ export interface ModifyQueryCallData extends BaseCallData {
     query: string
 }
 
+export interface DefineQueryTitleCallData extends BaseCallData {
+    state: 'DEFINE_QUERY_TITLE'
+    query: string
+}
+
 export interface SearchIndexesCallData extends BaseCallData {
     state: 'SEARCH_WITH_INDEXES'
     query: string,
@@ -90,6 +95,7 @@ export interface CompleteCallData extends BaseCallData {
     llmResponse: string
 }
 export type CallData =
+                       DefineQueryTitleCallData       |
                        ParseQueryCallData             |
                        SearchCallData                 |
                        SearchIndexesCallData          |

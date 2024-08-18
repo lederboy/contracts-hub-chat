@@ -1,12 +1,12 @@
 import { OpenAIClient } from "@azure/openai";
 import { ModifyQueryCallData, ParseQueryCallData, SearchCallData } from "./states";
 import { ModifyQueryWithHistoryPrompt } from "../../prompts/modifyQuery";
-import { ChatSession } from "../session";
+import { ChatHistory_AI } from "../session";
 
 
 
 export class ModifyQueryWithHistory {
-    static formatUser(query:string, session: ChatSession): string {
+    static formatUser(query:string, session: ChatHistory_AI): string {
         return `
         context:
             ${JSON.stringify(session.chatHistory)}
@@ -16,7 +16,8 @@ export class ModifyQueryWithHistory {
         `
     }
     static async run(callData: ModifyQueryCallData, openaiClient: OpenAIClient, deployment: string): Promise<SearchCallData | ParseQueryCallData> {
-        if(callData.session.documents.length > 0){
+        let doc_list = callData.session.chatHistory[callData.session.chatHistory.length - 1]?.documents ?? [];
+        if(doc_list.length > 0){
             const completion = await openaiClient.getChatCompletions(
                 'gpt-35-turbo',
                 [ModifyQueryWithHistoryPrompt, {role: 'user', content: this.formatUser(callData.query, callData.session)}],
@@ -30,7 +31,7 @@ export class ModifyQueryWithHistory {
                         return {
                             state: 'SEARCH',
                             session: callData.session,
-                            documents: callData.session.documents,
+                            documents: doc_list,
                             query: message.content
                         }
                     }

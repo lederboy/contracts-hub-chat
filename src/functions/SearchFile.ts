@@ -42,7 +42,7 @@ export async function SearchFile(request: HttpRequest, context: InvocationContex
         sessionId = uuidv4()
         context.log({sessionId: sessionId, status: 'createNewSession'})
     }
-    const session = await sessionManager.loadSession(sessionId, [chatSesh.document_name])
+    const session = await sessionManager.loadSession('Admin',sessionId, [chatSesh.document_name])
     let callData: CallData = {
         session: session, 
         query: chatSesh.search, 

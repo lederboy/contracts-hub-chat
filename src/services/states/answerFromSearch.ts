@@ -1,17 +1,20 @@
-import { OpenAIClient } from "@azure/openai";
-import { AnswerQueryFromSearchPrompt, } from "../../prompts/formatSearchQuery";
+import { OpenAIClient, ChatRequestMessage, ChatRequestSystemMessage  } from "@azure/openai";
+import { AnswerQueryFromSearchPrompt,CustomChatRequestMessage } from "../../prompts/formatSearchQuery";
 import { AnswerFromSearchCallData, AnswerFromSearchCallDataIndex, FinalizeCallData } from "./states";
 import { encode } from 'gpt-3-encoder';
 
 function isTokenCountExceedingLimit(text: string, limit: number = 4096): boolean {
     const tokens = encode(text);
     return tokens.length > limit;
-}
-
+}  
 interface CallData {
     documents: string[];
 }
 
+interface OriginalEntry {
+    direction: string;
+    content: string;
+}
 function removeSpaces(input: string): string {
     return input.replace(/\s+/g, '');
 }
@@ -39,7 +42,12 @@ function processDocuments(callData: CallData, response: string): string[] {
 
     return matchingDocuments;
 }
-
+function convertEntries(entries: OriginalEntry[]): CustomChatRequestMessage [] {
+    return entries.map((entry: OriginalEntry) => ({
+        role: entry.direction === 'outgoing' ? 'user' : 'assistant',
+        content: entry.content
+    }));
+}
 
 export class AnswerQueryFromSearch {
     static formatUserPrompt(mapping: Record<string, string>, query: string): string {
@@ -53,10 +61,13 @@ export class AnswerQueryFromSearch {
         `
     }
     static async run(callData: AnswerFromSearchCallData, openaiClient: OpenAIClient, deployment: string, overrideDeployment: boolean = false): Promise<FinalizeCallData> {
+
         const response_ = this.formatUserPrompt(callData.searchResponse, callData.query)
         const tokenLimit = 4096;
         const isExceeding = isTokenCountExceedingLimit(response_, tokenLimit);
-        
+        let chat_history = callData.session.chatHistory.slice(Math.max(callData.session.chatHistory.length - 2, 0))
+        const convertedArray = convertEntries(chat_history);
+        let prompt_chat: CustomChatRequestMessage[] = [AnswerQueryFromSearchPrompt, ...convertedArray];
         if (overrideDeployment && isExceeding) {
             deployment = 'gpt-4o';
         }else{
@@ -65,7 +76,7 @@ export class AnswerQueryFromSearch {
         console.log(deployment)
         const completion = await openaiClient.getChatCompletions(
             deployment,
-            [AnswerQueryFromSearchPrompt, {role: 'user', content: response_}],
+            prompt_chat.concat([{role: 'user', content: response_}]),
             {temperature: 0.0}
         )
 
@@ -87,7 +98,6 @@ export class AnswerQueryFromSearch {
                     filenames.push(match[1]);
                 }
                 if (filenames.length === 0){
-                    // const matchingDocuments = processDocuments(callData, message.content);
                     filenames  = [...processDocuments(callData, message.content), ...filenames]
                 }
                 const cleanedFilenames: string[] = filenames.map(filename => filename.replace("**", ""));

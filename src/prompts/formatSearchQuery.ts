@@ -1,9 +1,13 @@
-import { ChatRequestSystemMessage } from "@azure/openai";
+import { ChatRequestSystemMessage, ChatRequestMessage } from "@azure/openai";
+
+export interface CustomChatRequestMessage {
+    role: 'user' | 'assistant' | 'system';
+    content: string;
+}
 
 
 
-
-export const AnswerQueryFromSearchPrompt: ChatRequestSystemMessage = 
+export const AnswerQueryFromSearchPrompt: CustomChatRequestMessage = 
     {
         role: 'system',
         content: `

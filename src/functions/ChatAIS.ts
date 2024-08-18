@@ -51,17 +51,18 @@ export async function ChatAIS(request: HttpRequest, context: InvocationContext):
     )
 
     const chatSesh = ChatSessionSchemaAIS.parse(await request.json());
-    // let sessionId = chatSesh.sessionId;
-    let sessionId = ''
-    let history_check = false;
+    let sessionId = chatSesh.sessionId;
+    let user = chatSesh.user;
+    // let sessionId = ''
+    let title_def = false;
     if(sessionId){
-        history_check = true
         context.log({sessionId: sessionId, status: 'usingExistingSession'})
     }else{
+        title_def = true
         sessionId = uuidv4()
         context.log({sessionId: sessionId, status: 'createNewSession'})
     }
-    const session = await sessionManager.loadSession(sessionId)
+    const session = await sessionManager.loadSession(user, sessionId)
     // const normalizedStr = normalize(chatSesh.query);
     // const containsAnySubstring = substrings.some(substring => normalizedStr.includes(normalize(substring)));
     // const containsAnySubstring = history_check? 'MODIFY_QUERY_WITH_HISTORY' : 'SEARCH_WITH_METADATA'
@@ -70,7 +71,7 @@ export async function ChatAIS(request: HttpRequest, context: InvocationContext):
     let callData: CallData = {
         session: session, 
         query: chatSesh.query, 
-        state: history_check? 'MODIFY_QUERY_WITH_HISTORY' : 'SEARCH_WITH_METADATA'
+        state: title_def? 'DEFINE_QUERY_TITLE' : 'SEARCH_WITH_METADATA'
     }
     while(callData.state !== "COMPLETE"){
         try{
@@ -87,15 +88,16 @@ export async function ChatAIS(request: HttpRequest, context: InvocationContext):
             }
         }
     }
-    await sessionManager.saveSession(callData.session)
+    await sessionManager.saveSession(user, callData.session)
     return {
         headers: {
             'Content-Type': 'application/json'
         },
         body: JSON.stringify(
             {
+                title: callData.session.title,
                 llmResponse: callData.llmResponse,
-                documents: callData.session.documents,
+                documents: callData.session.chatHistory[callData.session.chatHistory.length - 1].documents,
                 sessionId: sessionId
             }
         )

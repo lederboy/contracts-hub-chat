@@ -1,4 +1,5 @@
 import { OpenAIClient } from "@azure/openai";
+import { DefineQueryTitle } from "./states/defineQueryTitle";
 import { ModifyQueryWithHistory } from "./states/modifyQueryWithHistory";
 import { SearchIndexes, SearchMetadata } from "./states/searchIndexes";
 import { CallData } from "./states/states";
@@ -24,8 +25,10 @@ export class ChatWorkflowAIS {
     }
 
     async run(callData: CallData): Promise<CallData>{
-        
-        if(callData.state === "MODIFY_QUERY_WITH_HISTORY"){
+        if(callData.state === "DEFINE_QUERY_TITLE"){
+            return await DefineQueryTitle.run(callData, this.openaiClient, this.openaiDeployments.completions)
+        }
+        else if(callData.state === "MODIFY_QUERY_WITH_HISTORY"){
             return await ModifyQueryWithHistory.run(callData, this.openaiClient, this.openaiDeployments.completions)
         }
         else if(callData.state === "SEARCH_WITH_METADATA"){
