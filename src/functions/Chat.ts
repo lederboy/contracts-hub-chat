@@ -43,7 +43,7 @@ export async function Chat(request: HttpRequest, context: InvocationContext): Pr
         sessionId = uuidv4()
         context.log({sessionId: sessionId, status: 'createNewSession'})
     }
-    const session = await sessionManager.loadSession(sessionId)
+    const session = await sessionManager.loadSession('Admin',sessionId)
     let callData: CallData = {
         session: session, 
         query: chatSesh.query, 
@@ -68,7 +68,7 @@ export async function Chat(request: HttpRequest, context: InvocationContext): Pr
             }
         }
     }
-    await sessionManager.saveSession(callData.session)
+    await sessionManager.saveSession('Admin', callData.session)
     return {
         headers: {
             'Content-Type': 'application/json'
@@ -76,7 +76,7 @@ export async function Chat(request: HttpRequest, context: InvocationContext): Pr
         body: JSON.stringify(
             {
                 llmResponse: callData.llmResponse,
-                documents: callData.session.documents,
+                documents: callData.session.chatHistory[callData.session.chatHistory.length - 1].documents,
                 sessionId: sessionId
             }
         )
