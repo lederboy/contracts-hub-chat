@@ -52,11 +52,26 @@ export class SessionManager {
             
         }
         return {
-            sessionId : sessionId,
-            title: '',
-            chatHistory: []
+                sessionId : sessionId,
+                title: '',
+                chatHistory: [] 
+            }
 
+        
+    }
+    async deleteSession(user: string, sessionId: string){
+        const blobClient = this.containerClient.getBlockBlobClient(`${this.sessionPrefix}/${user}.json`)
+        if(await blobClient.exists()){
+            const sessionStr = (await blobClient.downloadToBuffer()).toString()
+            let json_session = JSON.parse(sessionStr)
+            json_session.conversations = json_session.conversations.filter(
+                (conversation: { sessionId: string; }) => conversation.sessionId !== sessionId);
+            const updatedContent = JSON.stringify(json_session);
+            await blobClient.upload(updatedContent, Buffer.byteLength(updatedContent));
+            return true
+            
         }
+        return false
     }
     async saveSession(user: string, session: ChatHistory_AI) {
         let userSession;
