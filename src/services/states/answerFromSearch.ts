@@ -91,9 +91,9 @@ export class AnswerQueryFromSearch {
                 let filenames: string[] = [];
                 let match;
 
-                while ((match = regex.exec(message.content)) !== null) {
-                    filenames.push(match[2]);
-                }
+                // while ((match = regex.exec(message.content)) !== null) {
+                //     filenames.push(match[2]);
+                // }
                 while ((match = pdfPattern.exec(message.content)) !== null) {
                     filenames.push(match[1]);
                 }
