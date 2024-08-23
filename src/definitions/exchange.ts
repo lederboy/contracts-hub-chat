@@ -15,6 +15,14 @@ export const ChatSessionSchemaAIS = z.object({
 
 })
 
+export const ChatFeedbackSession = z.object({
+    chatOrder: z.number(),
+    feedback: z.boolean(),
+    sessionId: z.string(),
+    user: z.string()
+
+})
+
 export const ChatHistorySession = z.object({
     sessionId: z.string(),
     user: z.string()
