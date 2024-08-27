@@ -155,7 +155,8 @@ export class SessionManager {
         if (!conversation) {
             userSession.conversations.push(session);
         }else{
-            conversation.chatHistory.push(...session.chatHistory.slice(Math.max(session.chatHistory.length - 2, 0)));
+            // conversation.chatHistory.push(...session.chatHistory.slice(Math.max(session.chatHistory.length - 2, 0)));
+            conversation.chatHistory= session.chatHistory;
         }
         const updatedContent = JSON.stringify(userSession);
         await blobClient.upload(updatedContent, Buffer.byteLength(updatedContent));
