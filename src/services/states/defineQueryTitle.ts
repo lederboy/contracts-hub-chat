@@ -8,8 +8,8 @@ import { ChatHistory_AI } from "../session";
 export class DefineQueryTitle {
     static formatUser(query:string): string {
         return `
-        Based on the provided query, create a concise and relevant title for the topic conversation that the user will engage in.
-        query:
+        Based on the provided query, create a short, and detailed title Only based on the provided query.
+        Provided query:
             ${query}
             
         `
@@ -18,14 +18,14 @@ export class DefineQueryTitle {
         const completion = await openaiClient.getChatCompletions(
             'gpt-35-turbo',
             [DefineTitlteForQuery, {role: 'user', content: this.formatUser(callData.query)}],
-            {temperature: 0.0}
+            {temperature: 0.5}
         )
         if(completion.choices.length > 0){
             let choice = completion.choices[0]
             if(choice.message){
                 let message = choice.message
                 if(message.content){
-                    callData.session.title = message.content
+                    callData.session.title = message.content.replace(/"/g, '');
                     return {
                         state: 'SEARCH_WITH_METADATA',
                         session: callData.session,

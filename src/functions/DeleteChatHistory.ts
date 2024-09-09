@@ -1,11 +1,10 @@
-import { ChatHistory } from './../services/session';
 import { app, HttpRequest, HttpResponseInit, InvocationContext } from "@azure/functions";
 import { ChatHistorySession } from "../definitions/exchange";
 import { SessionManager } from "../services/session";
 import { ContainerClient, StorageSharedKeyCredential } from "@azure/storage-blob";
 
 
-export async function HistoricalChat(request: HttpRequest, context: InvocationContext): Promise<HttpResponseInit> {
+export async function DeleteChatHistory(request: HttpRequest, context: InvocationContext): Promise<HttpResponseInit> {
     const sessionManager = new SessionManager(
         new ContainerClient(
             process.env.BLOB_CONTAINER_URL!,
@@ -15,40 +14,30 @@ export async function HistoricalChat(request: HttpRequest, context: InvocationCo
             )
         )
     )
+    
 
     const chatSesh = ChatHistorySession.parse(await request.json());
     let sessionId = chatSesh.sessionId;
     let user = chatSesh.user;
-    // let sessionId = ''
-    const session = await sessionManager.loadSession(user, sessionId)
-    if(!sessionId){
-        return {
-            headers: {
-                'Content-Type': 'application/json'
-            },
-            body: JSON.stringify(
-                {
-                    topicHistory: Array.isArray(session) ? session : [session]
-                }
-            )
-        }
-        
-    }
+    const isdeleted = await sessionManager.deleteSession(user, sessionId)
+
+    
+    // await sessionManager.saveSession(user, callData.session)
     return {
         headers: {
             'Content-Type': 'application/json'
         },
         body: JSON.stringify(
             {
-                chathistory: session.chatHistory
+                deleted: isdeleted
             }
         )
     }
 
 };
 
-app.http('HistoricalChat', {
+app.http('DeleteChatHistory', {
     methods: ['POST'],
     authLevel: 'anonymous',
-    handler: HistoricalChat
+    handler: DeleteChatHistory
 });

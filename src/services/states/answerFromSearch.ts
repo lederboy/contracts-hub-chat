@@ -91,9 +91,9 @@ export class AnswerQueryFromSearch {
                 let filenames: string[] = [];
                 let match;
 
-                while ((match = regex.exec(message.content)) !== null) {
-                    filenames.push(match[2]);
-                }
+                // while ((match = regex.exec(message.content)) !== null) {
+                //     filenames.push(match[2]);
+                // }
                 while ((match = pdfPattern.exec(message.content)) !== null) {
                     filenames.push(match[1]);
                 }
@@ -102,14 +102,14 @@ export class AnswerQueryFromSearch {
                 }
                 const cleanedFilenames: string[] = filenames.map(filename => filename.replace("**", ""));
                 const uniqueFilenames = Array.from(new Set(cleanedFilenames));
-                
-                
+                // const updatedDocumentsSet: Set<string> = new Set([...callData.documents, ...uniqueFilenames]);
+                callData.documents = Array.from(uniqueFilenames);
 
 
                 return {
                     state: 'FINALIZE',
                     session: callData.session,
-                    documents: uniqueFilenames,
+                    documents: callData.documents,
                     query: callData.query,
                     llmResponse: message.content
                 }
