@@ -12,7 +12,6 @@ export const ChatSessionSchemaAIS = z.object({
     sessionId: z.string().optional(),
     query: z.string(),
     user: z.string()
-
 })
 
 export const ChatFeedbackSession = z.object({
