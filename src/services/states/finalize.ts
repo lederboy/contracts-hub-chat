@@ -32,7 +32,9 @@ export class Finalize {
         return {
             state: 'COMPLETE',
             session: callData.session,
-            llmResponse: callData.llmResponse
+            llmResponse: callData.llmResponse,
+            score: callData.score,
+            explanation: callData.explanation
         }
     }
 }

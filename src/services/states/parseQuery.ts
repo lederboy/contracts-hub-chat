@@ -15,9 +15,9 @@ export class ParseSearchQuery {
     static async run(callData: ParseQueryCallData, openaiClient: OpenAIClient, deployment: string): Promise<GetDocumentsCallData> {
     
         const completion = await openaiClient.getChatCompletions(
-                    'gpt-35-turbo',
-                    [FilterQuery, {role: 'user', content: callData.query}],
-                    {responseFormat: {type: "json_object"}}
+            deployment,
+            [FilterQuery, {role: 'user', content: callData.query}],
+            {responseFormat: {type: "json_object"}}
         )
         let searchParams = []
         if(completion.choices.length > 0){

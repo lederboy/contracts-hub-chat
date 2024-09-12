@@ -298,3 +298,67 @@ export async function VerifySearch(searchRequest: string, file_array: string[]) 
   return uniqueArray;
 };
   
+export async function Search_individual(searchRequest: string, document: string, type_search: string) {
+  let outputArray;
+  const semantic_config: { [key: string]: string } = {
+    "summary-index": "summary-semantic-config",
+    "json-index": "base",
+    "contracts-index": "contracts-index-semantic-configuration"
+  }
+  const filter_type: { [key: string]: string } = {
+      "summary-index": `fileName eq '${document.replace('.pdf', '')}'`,
+      "json-index": `fileName eq '${document.replace('.pdf', '')}'`,
+      "contracts-index": `title eq '${document}'`
+  }
+
+    
+  const Payload = JSON.stringify({
+    search: searchRequest,
+    vectorQueries: [
+      {
+        kind: 'text',
+        text: searchRequest,
+        fields: 'embedding'
+      }
+    ],
+    select: 'fileName, content',
+    filter: filter_type[type_search], 
+    queryType: 'semantic',
+    semanticConfiguration: semantic_config[type_search],
+    captions: 'extractive',
+    answers: 'extractive|count-3',
+    queryLanguage: 'en-US'
+  });
+
+  const settings = {  
+      method: "POST",  
+      headers: {  
+        "api-key": process.env.AI_SEARCH_KEY!,  
+        "Content-Type": "application/json"  
+      },  
+      body: Payload 
+    }; 
+
+  const url =  process.env.AI_SEARCH_ENDPOINT! + '/indexes/' + type_search + '/docs/search?api-version=2024-05-01-preview'
+    const searchResults = await fetch(url, settings); 
+  if (!searchResults.ok) {  
+    throw new Error(`HTTP error! status: ${searchResults.status}`);  
+  }  
+   
+  const data_searchResults: any = await searchResults.json();
+
+  const flattenedValue_ = await Promise.all(
+    data_searchResults.value.map((summ: any) => flattenCaptions(summ, ''))
+  );   
+
+
+  const flattenedResponse = removeFields(flattenedValue_, [
+    "@search.captions.highlights",
+    "@search.captions.text"
+  ]);
+
+  const EditedData = await removeSearchStrings(flattenedResponse);
+  // outputArray = await replaceScoreChunksKey(EditedData, '');
+  return EditedData;
+};
+  

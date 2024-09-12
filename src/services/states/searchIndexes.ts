@@ -1,14 +1,18 @@
 import { SearchResponse } from './../../apis/search';
-import { VerifySearch, VerifySearch_2 } from "../../apis/searchindexes";
+import { VerifySearch, VerifySearch_2, Search_individual } from "../../apis/searchindexes";
 import { SearchIndexesCallData, 
         SearchMetaDataCallData, 
         AnswerFromSearchCallDataIndex, 
         NeedsMoreContextCallData,
+        SearchIndividualCallDataIndex,
         SearchCallDataIndex} from "./states";
 
 
 type DataItem = {
     score: number;
+    content: string;
+    fileName: string;
+    rerankerScore: number;
     content_chunks: string;
     fileName_chunks: string;
     score_summary: number;
@@ -45,6 +49,13 @@ type Dictionary = {
     fileName_summary?: string;
     [key: string]: any;
 };
+
+
+type OutputData = {
+    score_summary: number | null;
+    rerankerScore_summary: number;
+    content_summary: string;
+  };
 
 function generateDictionary(
         resultDictionary: Dictionary[], 
@@ -169,6 +180,45 @@ export class SearchIndexes {
                 searchResponse: resultDictionary,
                 session: callData.session,
                 documents: document_list,
+                query: callData.query,
+                override: true
+            }
+        }     
+
+        
+    }
+
+    static async run_individual(callData: SearchIndividualCallDataIndex): Promise<AnswerFromSearchCallDataIndex | NeedsMoreContextCallData> {
+        
+        const data_response: Data = await Search_individual(callData.query, callData.documents, callData.type_search);
+        
+        if (data_response.length === 0) {
+            return  {
+                state: 'NEEDS_MORE_CONTEXT',
+                session: callData.session,
+                query: callData.query
+            }
+        } else {
+            const normalizedDictionaries = normalizeScores(data_response, 'score');
+            const outputArray: { [key: string]: string }[] = [];
+            normalizedDictionaries.forEach((item) => {
+            const parsedContent = JSON.parse(item.content);
+            const outputData = {
+                score: item.score,
+                rerankerScore: item.rerankerScore,
+                content: JSON.stringify(parsedContent)
+            };
+
+            const formattedString = JSON.stringify(outputData);            
+            const entry = { [item.fileName]: formattedString };
+            outputArray.push(entry);
+            });
+            
+            return {
+                state: "ANSWER_FROM_SEARCH",
+                searchResponse: outputArray,
+                session: callData.session,
+                documents: [callData.documents],
                 query: callData.query,
                 override: true
             }
