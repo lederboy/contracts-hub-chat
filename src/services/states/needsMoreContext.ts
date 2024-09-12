@@ -21,7 +21,9 @@ export class NeedsMoreContext {
                      session: callData.session,
                      documents: [],
                      query: callData.query,
-                     llmResponse: message.content
+                     llmResponse: message.content,
+                     score: "0",
+                     explanation: "The LLM needs more context"
                  }
              }
             }

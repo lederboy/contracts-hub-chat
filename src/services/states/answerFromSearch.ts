@@ -1,6 +1,6 @@
 import { OpenAIClient, ChatRequestMessage, ChatRequestSystemMessage  } from "@azure/openai";
 import { AnswerQueryFromSearchPrompt,CustomChatRequestMessage } from "../../prompts/formatSearchQuery";
-import { AnswerFromSearchCallData, AnswerFromSearchCallDataIndex, FinalizeCallData } from "./states";
+import { AnswerFromSearchCallData, AnswerFromSearchCallDataIndex, EvaluateCallData } from "./states";
 import { encode } from 'gpt-3-encoder';
 
 function isTokenCountExceedingLimit(text: string, limit: number = 4096): boolean {
@@ -50,8 +50,24 @@ function convertEntries(entries: OriginalEntry[]): CustomChatRequestMessage [] {
 }
 
 export class AnswerQueryFromSearch {
-    static formatUserPrompt(mapping: Record<string, string>, query: string): string {
-        let mappingStrings = Object.keys(mapping).map((k) => `${k} -> ${mapping[k]}`)
+    static formatUserPrompt(mapping: any, query: string): string {
+        // let mappingStrings;
+        let mappingStrings: string[] = [];
+        if (Array.isArray(mapping)){
+            // mappingStrings = Object.keys(mapping).map((k) => `${k} -> ${mapping[k]}`)
+            mapping.forEach(dictionary => {
+                for (const key in dictionary) {
+                  if (dictionary.hasOwnProperty(key)) {
+                    const value = dictionary[key];
+                    const mappingString = `${key} -> ${value}`;
+                    mappingStrings.push(mappingString);
+                  }
+                }
+              });
+        }else{
+            mappingStrings = Object.keys(mapping).map((k) => `${k} -> ${mapping[k]}`)
+        }
+
         return `
         Query:
             ${query}
@@ -60,9 +76,10 @@ export class AnswerQueryFromSearch {
         
         `
     }
-    static async run(callData: AnswerFromSearchCallData, openaiClient: OpenAIClient, deployment: string, overrideDeployment: boolean = false): Promise<FinalizeCallData> {
-
+    static async run(callData: AnswerFromSearchCallData, openaiClient: OpenAIClient, deployment: string, overrideDeployment: boolean = false): Promise<EvaluateCallData> {
         const response_ = this.formatUserPrompt(callData.searchResponse, callData.query)
+        
+        
         const tokenLimit = 4096;
         const isExceeding = isTokenCountExceedingLimit(response_, tokenLimit);
         let chat_history = callData.session.chatHistory.slice(Math.max(callData.session.chatHistory.length - 2, 0))
@@ -107,7 +124,7 @@ export class AnswerQueryFromSearch {
 
 
                 return {
-                    state: 'FINALIZE',
+                    state: 'EVALUATE',
                     session: callData.session,
                     documents: callData.documents,
                     query: callData.query,

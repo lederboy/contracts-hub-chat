@@ -8,6 +8,7 @@ import { ApiCredentials, Deployments } from "../utils/types";
 import { ParseSearchQuery } from "./states/parseQuery";
 import { Search } from "./states/search";
 import { AnswerQueryFromSearch } from "./states/answerFromSearch";
+import { EvaluateLLMResponse } from "./states/evaluateResponse";
 import { GetDocuments } from "./states/getDocuments";
 import { NeedsMoreContext } from "./states/needsMoreContext";
 
@@ -34,6 +35,9 @@ export class ChatWorkflowAIS {
         else if(callData.state === "SEARCH_WITH_METADATA"){
             return await SearchMetadata.run(callData)
         }
+        else if(callData.state === "SEARCH_IND_INDEXES"){
+            return await SearchIndexes.run_individual(callData)
+        }
         else if(callData.state === "SEARCH_WITH_INDEXES"){
             return await SearchIndexes.run(callData)
         }
@@ -58,6 +62,9 @@ export class ChatWorkflowAIS {
         }
         else if(callData.state === "ANSWER_FROM_SEARCH"){
             return await AnswerQueryFromSearch.run(callData, this.openaiClient, this.openaiDeployments.completions, true)
+        }
+        else if(callData.state === "EVALUATE"){
+            return await EvaluateLLMResponse.run(callData, this.openaiClient, this.openaiDeployments.completions, true)
         }
         else if(callData.state === "FINALIZE") {
             return Finalize.run(callData)

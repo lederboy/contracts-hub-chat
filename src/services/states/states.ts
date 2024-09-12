@@ -47,13 +47,18 @@ export interface SearchCallDataIndex extends BaseCallData {
     searchResponse: Record<string, string>,
     override: boolean
 }
+
+
 export interface AnswerFromSearchCallDataIndex extends BaseCallData {
     state: "ANSWER_FROM_SEARCH"
     query: string
     documents: string[]
-    searchResponse: Record<string, string>,
+    searchResponse: any,
     override: boolean
 }
+
+
+
 
 
 export interface ModifyQueryCallData extends BaseCallData {
@@ -64,6 +69,14 @@ export interface ModifyQueryCallData extends BaseCallData {
 export interface DefineQueryTitleCallData extends BaseCallData {
     state: 'DEFINE_QUERY_TITLE'
     query: string
+}
+
+
+export interface SearchIndividualCallDataIndex extends BaseCallData {
+    state: "SEARCH_IND_INDEXES"
+    query: string
+    documents: string
+    type_search: string
 }
 
 export interface SearchIndexesCallData extends BaseCallData {
@@ -86,13 +99,23 @@ export interface FinalizeCallData extends BaseCallData {
     state: 'FINALIZE',
     query: string
     documents: string[]
+    llmResponse: string,
+    score: string | undefined,
+    explanation: string | undefined
+}
+export interface EvaluateCallData extends BaseCallData {
+    state: "EVALUATE",
+    query: string
+    documents: string[]
     llmResponse: string
 }
 
 
 export interface CompleteCallData extends BaseCallData {
     state: 'COMPLETE'
-    llmResponse: string
+    llmResponse: string,
+    score: string | undefined,
+    explanation: string | undefined
 }
 export type CallData =
                        DefineQueryTitleCallData       |
@@ -102,6 +125,8 @@ export type CallData =
                        SearchMetaDataCallData         |
                        GetDocumentsCallData           |
                        AnswerFromSearchCallData       |
+                       SearchIndividualCallDataIndex  |
+                       EvaluateCallData               |
                        AnswerFromSearchCallDataIndex  |
                        SearchCallDataIndex            |
                        ModifyQueryCallData            |

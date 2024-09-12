@@ -4,7 +4,7 @@ import {v4 as uuidv4} from 'uuid';
 import { SessionManager } from "../services/session";
 import { ContainerClient, StorageSharedKeyCredential } from "@azure/storage-blob";
 import { CallData } from "../services/states/states";
-import { initWorkflowSearch } from "../utils/init";
+import { initWorkflowAIS } from "../utils/init";
 
 
 export async function SearchFile(request: HttpRequest, context: InvocationContext): Promise<HttpResponseInit> {
@@ -17,7 +17,7 @@ export async function SearchFile(request: HttpRequest, context: InvocationContex
             )
         )
     )
-    const chatWorkflow = initWorkflowSearch(
+    const chatWorkflow = initWorkflowAIS(
         {
             endpoint: process.env.OPENAI_API_ENDPOINT!, 
             key: process.env.OPENAI_API_KEY!
@@ -42,11 +42,13 @@ export async function SearchFile(request: HttpRequest, context: InvocationContex
         sessionId = uuidv4()
         context.log({sessionId: sessionId, status: 'createNewSession'})
     }
-    const session = await sessionManager.loadSession('Admin',sessionId, [chatSesh.document_name])
+    const session = await sessionManager.loadSession('Admin', sessionId)
     let callData: CallData = {
         session: session, 
         query: chatSesh.search, 
-        state: 'MODIFY_QUERY_WITH_HISTORY'
+        state: 'SEARCH_IND_INDEXES',
+        documents: chatSesh.document_name,
+        type_search: chatSesh.type_search
     }
     while(callData.state !== "COMPLETE"){
         try{
@@ -71,7 +73,9 @@ export async function SearchFile(request: HttpRequest, context: InvocationContex
             elements: [
                 [
                     {
-                        content: callData.llmResponse
+                        content: callData.llmResponse,
+                        score: callData.score,
+                        explanation: callData.explanation
                     }
                 ]
             ]
