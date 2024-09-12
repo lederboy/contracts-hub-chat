@@ -37,11 +37,10 @@ export class EvaluateLLMResponse {
             if(choice.message){
                 let message = choice.message
                 if(message.content){
-                    const explanationMatch = message.content.match(/Explanation: ([\s\S]*?)\n\n/);
-                    const scoreMatch = message.content.match(/Score: (\d+)/);
+                    const explanationMatch = message.content.match(/Explanation:\s*(.+?)\s*Score:/s);
+                    const scoreMatch = message.content.match(/Score:\s*(\d+)/);
                     const explanation = explanationMatch ? explanationMatch[1].trim() : '';
                     const score = scoreMatch ? scoreMatch[1] : '';
-                    callData.session.title = message.content.replace(/"/g, '');
                     return {
                         state: 'FINALIZE',
                         session: callData.session,
