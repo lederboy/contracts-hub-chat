@@ -26,7 +26,9 @@ export class Finalize {
                 direction: 'incoming',
                 content: callData.llmResponse,
                 documents: document_holder,
-                chatOrder: lastChatOrder + 2
+                chatOrder: lastChatOrder + 2,
+                score: callData.score,
+                explanation: callData.explanation
             }
         )
         return {

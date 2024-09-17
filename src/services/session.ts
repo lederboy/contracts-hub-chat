@@ -16,7 +16,9 @@ export interface HistoricalQuieries {
     content: string
     direction: string
     documents?: string[],
-    chatOrder: number
+    chatOrder: number,
+    score?: string,
+    explanation?: string
 }
 
 export interface ChatHistory_AI {
