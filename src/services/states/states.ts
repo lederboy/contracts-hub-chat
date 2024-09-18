@@ -71,6 +71,10 @@ export interface DefineQueryTitleCallData extends BaseCallData {
     query: string
 }
 
+export interface DefineResponseCallData extends BaseCallData {
+    state: 'DEFINE_RESPONSE_TYPE'
+    query: string
+}
 
 export interface SearchIndividualCallDataIndex extends BaseCallData {
     state: "SEARCH_IND_INDEXES"
@@ -119,6 +123,7 @@ export interface CompleteCallData extends BaseCallData {
 }
 export type CallData =
                        DefineQueryTitleCallData       |
+                       DefineResponseCallData         |
                        ParseQueryCallData             |
                        SearchCallData                 |
                        SearchIndexesCallData          |

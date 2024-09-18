@@ -69,10 +69,12 @@ export class AnswerQueryFromSearch {
         }
 
         return `
-        Query:
-            ${query}
+        Based on the provided mappings, please respond the question asked by the user.
         Mappings:
             ${mappingStrings.join('\n')}
+        Query:
+            ${query}
+        
         
         `
     }

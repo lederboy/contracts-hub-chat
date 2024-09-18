@@ -8,22 +8,27 @@ export class EvaluateLLMResponse {
     static formatUser(query:string, response:string): string {
         return `
         Evaluate the following response from the Language Model (LLM) based on the given query and response. 
-        Focus on the confindece of the response to the query asked and the existing of hallucinations. 
+        Focus on whether the response responds the query and the existence of hallucinations. 
         The Rating Scale will be: 1-5
-        Please assign a Score using the following 5-point scale: 
-            1: You are not confident that the Answer addresses the Question at all, the Answer may be entirely off-topic or irrelevant to the Question. 
-            2: You have low confidence that the Answer addresses the Question, there are doubts and uncertainties about the accuracy of the Answer.  
-            3: You have moderate confidence that the Answer addresses the Question, the Answer seems reasonably accurate and on-topic, but with room for improvement. 
-            4: You have high-confidence that the Answer addresses the Question., the Answer provides accurate information that addresses most of the Question.
-            5: You are extremely confident that the Answer addresses the Question, the Answer is highly accurate, relevant, and effectively addresses the Question in its entirety. 
+        Please assign a score using the following 5-point scale:
+        1. Not confident that the answer responds to the question at all; it may be entirely off-topic or irrelevant, and the user cannot get their question answered. 
+            Example: 
+                Question: "What are the termination terms?" 
+                Answer: "Based on the provided mappings, there is no specific information regarding the termination terms for the 2024 Part D_Caremark_FE contract. The available information in the mappings only includes additional provisions related to mail fulfillment for specialty drugs, conflict of terms, and the use of third parties to fulfill duties under the amendment. However, there is no mention of termination terms in the provided content. To obtain the termination terms for the 2024 Part D_Caremark_FE contract, it would be necessary to refer to the full contract document or any other relevant documents related to the contract."
+                Explanation: The answer does not directly respond to the question and doesn't have enough information.
+        2. Low confidence that the answer responds to the question; there are doubts and uncertainties about the accuracy of the answer, and it lacks sufficient detail to satisfactorily respond to the user's question.
+        3. Moderate confidence that the answer responds to the question; the answer seems reasonably accurate and on-topic but has room for improvement and lacks sufficient details to fully respond to the user's question.
+        4. Confident that the answer responds to the question; the answer provides accurate information that responds to most of the question with enough detail but lacks comprehensive coverage.
+        5. Extremely confident that the answer responds to the question; the answer is highly accurate, relevant, and effectively responds to the question in its entirety with all necessary details, fully answering the user's question.
+        You don't need the Answer to acknowledge the question only to respond it with the necesarry information
         Evaluate based on the provided query and the provided response:
-        Provided query:
+        Provided Question:
             ${query}
-        Provided Response:
+        Provided Answer:
             ${response}
         The output should strictly use the following template: 
             Explanation: [provide a brief reasoning you used to derive the rating]
-            Score: <rating>
+            Score: <rating>      
         `
     }
     static async run(callData: EvaluateCallData, openaiClient: OpenAIClient, deployment: string, overrideDeployment: boolean = false): Promise<FinalizeCallData> {

@@ -1,5 +1,5 @@
 import { OpenAIClient } from "@azure/openai";
-import { DefineQueryTitleCallData,   SearchMetaDataCallData} from "./states";
+import { DefineQueryTitleCallData,   DefineResponseCallData} from "./states";
 import { DefineTitlteForQuery } from "../../prompts/definetitle";
 import { ChatHistory_AI } from "../session";
 
@@ -14,7 +14,7 @@ export class DefineQueryTitle {
             
         `
     }
-    static async run(callData: DefineQueryTitleCallData, openaiClient: OpenAIClient, deployment: string): Promise<SearchMetaDataCallData> {
+    static async run(callData: DefineQueryTitleCallData, openaiClient: OpenAIClient, deployment: string): Promise<DefineResponseCallData> {
         const completion = await openaiClient.getChatCompletions(
             'gpt-35-turbo',
             [DefineTitlteForQuery, {role: 'user', content: this.formatUser(callData.query)}],
@@ -27,7 +27,7 @@ export class DefineQueryTitle {
                 if(message.content){
                     callData.session.title = message.content.replace(/"/g, '');
                     return {
-                        state: 'SEARCH_WITH_METADATA',
+                        state: 'DEFINE_RESPONSE_TYPE',
                         session: callData.session,
                         query: callData.query
                     }

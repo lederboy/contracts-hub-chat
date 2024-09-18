@@ -1,4 +1,6 @@
+import { OpenAIClient } from "@azure/openai";
 import { SearchResponse } from './../../apis/search';
+import {EvaluateSearch} from '../evaluatesearch';
 import { VerifySearch, VerifySearch_2, Search_individual } from "../../apis/searchindexes";
 import { SearchIndexesCallData, 
         SearchMetaDataCallData, 
@@ -7,9 +9,10 @@ import { SearchIndexesCallData,
         SearchIndividualCallDataIndex,
         SearchCallDataIndex} from "./states";
 
-
+type TypeSearchOptions = "json-index" | "contracts-index" | "summary-index" | "table-index";
 type DataItem = {
     score: number;
+    chunk: string;
     content: string;
     fileName: string;
     rerankerScore: number;
@@ -97,12 +100,15 @@ function generateDictionary(
 }
 
 export class SearchMetadata {
-    static async run(callData: SearchMetaDataCallData): Promise<AnswerFromSearchCallDataIndex | SearchCallDataIndex | NeedsMoreContextCallData> {
+    static async run(callData: SearchMetaDataCallData, openaiClient: OpenAIClient, deployment: string): Promise<AnswerFromSearchCallDataIndex | SearchCallDataIndex | NeedsMoreContextCallData> {
+        let evaluation = false;
         const data_response: Data = await VerifySearch_2(callData.query);
         const normalizedDictionaries = normalizeScores(data_response, 'score');
         // const filteredData = filterByKey(normalizedDictionaries, 0.3, 'score');
         const { resultDictionary, document_list } = generateDictionary(normalizedDictionaries, 'ContractFileName', {});
-        if (Object.keys(resultDictionary).length <= 2){
+        evaluation = await EvaluateSearch.run(JSON.stringify(resultDictionary), callData.query, openaiClient, deployment);      
+        
+        if (Object.keys(resultDictionary).length <= 2 || !evaluation){
             return {
                 state: "SEARCH_WITH_INDEXES",
                 searchResponse: resultDictionary,
@@ -161,10 +167,23 @@ function getUniqueDictionaries(dictionaries: Dictionary[]): Dictionary[] {
   
 
 export class SearchIndexes {
-    static async run(callData: SearchIndexesCallData): Promise<AnswerFromSearchCallDataIndex | NeedsMoreContextCallData> {
-        const data_response: Data = await VerifySearch(callData.query, Object.keys(callData.searchResponse));
+    static async run(callData: SearchIndexesCallData, openaiClient: OpenAIClient, deployment: string): Promise<AnswerFromSearchCallDataIndex | NeedsMoreContextCallData> {
         
-        if (data_response.length === 0) {
+        const typeSearchOptions: TypeSearchOptions[] = ["json-index", "summary-index", "table-index", "contracts-index"];
+        let evaluation = false;
+        let data_response: Data | null = null;
+        let type: string | null = null;
+
+        for (const typeSearchOption of typeSearchOptions) {
+            data_response = await VerifySearch(callData.query, Object.keys(callData.searchResponse), typeSearchOption);
+            evaluation = await EvaluateSearch.run(JSON.stringify(data_response), callData.query, openaiClient, deployment);      
+            console.log(evaluation)      
+            if (evaluation){type = typeSearchOption;break;};
+        }
+
+        
+        
+        if (data_response === null || data_response.length === 0) {
             return  {
                 state: 'NEEDS_MORE_CONTEXT',
                 session: callData.session,
@@ -188,11 +207,24 @@ export class SearchIndexes {
         
     }
 
-    static async run_individual(callData: SearchIndividualCallDataIndex): Promise<AnswerFromSearchCallDataIndex | NeedsMoreContextCallData> {
+    static async run_individual(callData: SearchIndividualCallDataIndex, openaiClient: OpenAIClient, deployment: string): Promise<AnswerFromSearchCallDataIndex | NeedsMoreContextCallData> {
         
-        const data_response: Data = await Search_individual(callData.query, callData.documents, callData.type_search);
+        const typeSearchOptions: TypeSearchOptions[] = ["json-index", "summary-index", "table-index", "contracts-index"];
+        let evaluation = false;
+        let data_response: Data | null = null;
+        let type: string | null = null;
+
+        for (const typeSearchOption of typeSearchOptions) {
+            data_response = await Search_individual(callData.query, callData.documents, typeSearchOption);
+            evaluation = await EvaluateSearch.run(JSON.stringify(data_response), callData.query, openaiClient, deployment);      
+            console.log(evaluation)      
+            type = typeSearchOption;
+            if (evaluation){type = typeSearchOption;break;};
+        }
+
+
         
-        if (data_response.length === 0) {
+        if (data_response === null || data_response.length === 0) {
             return  {
                 state: 'NEEDS_MORE_CONTEXT',
                 session: callData.session,
@@ -202,16 +234,17 @@ export class SearchIndexes {
             const normalizedDictionaries = normalizeScores(data_response, 'score');
             const outputArray: { [key: string]: string }[] = [];
             normalizedDictionaries.forEach((item) => {
-            const parsedContent = JSON.parse(item.content);
-            const outputData = {
-                score: item.score,
-                rerankerScore: item.rerankerScore,
-                content: JSON.stringify(parsedContent)
-            };
+                const holder: string = type ==='contracts-index' ? item.chunk: item.content
+                const parsedContent = holder.replace("{","").replace("}","")
+                const outputData = {
+                    score: item.score,
+                    rerankerScore: item.rerankerScore,
+                    content: parsedContent
+                };
 
-            const formattedString = JSON.stringify(outputData);            
-            const entry = { [item.fileName]: formattedString };
-            outputArray.push(entry);
+                const formattedString = JSON.stringify(outputData);            
+                const entry = { [item.fileName]: formattedString };
+                outputArray.push(entry);
             });
             
             return {

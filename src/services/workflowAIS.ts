@@ -1,5 +1,6 @@
 import { OpenAIClient } from "@azure/openai";
 import { DefineQueryTitle } from "./states/defineQueryTitle";
+import { DefineResponse } from "./states/defineResponse";
 import { ModifyQueryWithHistory } from "./states/modifyQueryWithHistory";
 import { SearchIndexes, SearchMetadata } from "./states/searchIndexes";
 import { CallData } from "./states/states";
@@ -29,17 +30,20 @@ export class ChatWorkflowAIS {
         if(callData.state === "DEFINE_QUERY_TITLE"){
             return await DefineQueryTitle.run(callData, this.openaiClient, this.openaiDeployments.completions)
         }
+        else if(callData.state === "DEFINE_RESPONSE_TYPE"){
+            return await DefineResponse.run(callData, this.openaiClient, this.openaiDeployments.completions)
+        }
         else if(callData.state === "MODIFY_QUERY_WITH_HISTORY"){
             return await ModifyQueryWithHistory.run(callData, this.openaiClient, this.openaiDeployments.completions)
         }
         else if(callData.state === "SEARCH_WITH_METADATA"){
-            return await SearchMetadata.run(callData)
+            return await SearchMetadata.run(callData, this.openaiClient, this.openaiDeployments.completions)
         }
         else if(callData.state === "SEARCH_IND_INDEXES"){
-            return await SearchIndexes.run_individual(callData)
+            return await SearchIndexes.run_individual(callData, this.openaiClient, this.openaiDeployments.completions)
         }
         else if(callData.state === "SEARCH_WITH_INDEXES"){
-            return await SearchIndexes.run(callData)
+            return await SearchIndexes.run(callData, this.openaiClient, this.openaiDeployments.completions)
         }
         else if(callData.state === "PARSE_SEARCH_QUERY"){
             return await ParseSearchQuery.run(callData, this.openaiClient, this.openaiDeployments.completions)
