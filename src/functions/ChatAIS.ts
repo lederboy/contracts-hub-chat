@@ -7,23 +7,27 @@ import { CallData } from "../services/states/states";
 import { initWorkflowAIS } from "../utils/init";
 
 
-const substrings = [
-    "Contract File Name",
-    "Line of Business",
-    "Agreement Effective Date",
-    "Agreement End Date",
-    "Vaccine List Available",
-    "Chain Code",
-    "Active Status",
-    "Active",
-    "Company"
-];
+// const substrings = [
+//     "Contract File Name",
+//     "Line of Business",
+//     "Agreement Effective Date",
+//     "Agreement End Date",
+//     "Vaccine List Available",
+//     "Chain Code",
+//     "Active Status",
+//     "Active",
+//     "Company"
+// ];
 
 const normalize = (input: string): string => {
     return input.toLowerCase().replace(/[-\s]+/g, "");
 };
 
 export async function ChatAIS(request: HttpRequest, context: InvocationContext): Promise<HttpResponseInit> {
+    const chatSesh = ChatSessionSchemaAIS.parse(await request.json());
+    let sessionId = chatSesh.sessionId;
+    let user = chatSesh.user;
+    
     const sessionManager = new SessionManager(
         new ContainerClient(
             process.env.BLOB_CONTAINER_URL!,
@@ -50,9 +54,7 @@ export async function ChatAIS(request: HttpRequest, context: InvocationContext):
         }
     )
 
-    const chatSesh = ChatSessionSchemaAIS.parse(await request.json());
-    let sessionId = chatSesh.sessionId;
-    let user = chatSesh.user;
+
     // let sessionId = ''
     let title_def = false;
     if(sessionId){
@@ -75,7 +77,7 @@ export async function ChatAIS(request: HttpRequest, context: InvocationContext):
     }
     while(callData.state !== "COMPLETE"){
         try{
-            callData = await chatWorkflow.run(callData)
+            callData = await chatWorkflow.run(callData, sessionManager)
             context.log(JSON.stringify(callData))
         }catch(err){
             context.error(callData)

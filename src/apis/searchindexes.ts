@@ -159,143 +159,99 @@ export async function VerifySearch_2(searchRequest: string) {
   return joinedData;
 };
 
-export async function VerifySearch(searchRequest: string, file_array: string[]) {
-  let formattedString = '';
-  let formattedString_table = '';
-  let outputArray;
-  let uniqueArray;
-  if (file_array.length===0){
-    formattedString = formatFileNames(file_array);
-    formattedString_table = formatFileNames(file_array, 'contracts/contracts/');
+export async function VerifySearch(searchRequest: string, file_array: string[], type_search: string) {
+  
+  const semantic_config: { [key: string]: string } = {
+    "summary-index": "summary-semantic-config",
+    "json-index": "base",
+    "contracts-index": "contracts-index-semantic-configuration",
+    "table-index" : "table-semantic-config"
   }
 
-  // const chunksPayload = JSON.stringify({
-  //     vectorQueries: [
-  //       {
-  //         kind: 'text',
-  //         text: searchRequest,
-  //         fields: 'embedding'
-  //       }
-  //     ],
-  //     select: 'content, fileName',
-  //     filter : formattedString
-  // });
-    
-  const summaryPayload = JSON.stringify({
+  const select_type: { [key: string]: string } = {
+    "summary-index": 'fileName, content',
+    "json-index": 'fileName, content',
+    "contracts-index": 'title, chunk',
+    "table-index" : 'fileName, content'
+  }
+
+
+  const filter_type: { [key: string]: string } = {
+    "summary-index": file_array.map(name => `fileName eq '${name.replace('.pdf', '')}'`).join(' or '),
+    "json-index": file_array.map(name => `fileName eq '${name.replace('.pdf', '')}'`).join(' or '),
+    "contracts-index": file_array.map(name => `title eq '${name}'`).join(' or '),
+    "table-index" : file_array.map(name => `fileName eq '${name.replace('.pdf', '')}'`).join(' or ')
+  }
+
+  const vectorQueries_fields: { [key: string]: string } = {
+    "summary-index": "embedding",
+    "json-index": "embedding",
+    "contracts-index": "text_vector",
+    "table-index" : "embedding"
+  }
+
+  const Payload = JSON.stringify({
     search: searchRequest,
+    select: select_type[type_search],
+    filter: filter_type[type_search], 
+    count: true,
     vectorQueries: [
       {
-        kind: 'text',
+        kind: "text",
         text: searchRequest,
-        fields: 'embedding'
+        fields: vectorQueries_fields[type_search]
       }
-    ],
-    select: 'fileName, content',
-    filter: formattedString, 
+    ],    
     queryType: 'semantic',
-    semanticConfiguration: 'summary-semantic-config',
+    semanticConfiguration: semantic_config[type_search],
     captions: 'extractive',
     answers: 'extractive|count-3',
     queryLanguage: 'en-US'
   });
 
-
-  const tablePayload = JSON.stringify({
-    search: searchRequest,
-    queryType: "semantic",
-    semanticConfiguration: "table-semantic-config",
-    captions: "extractive",
-    answers: "extractive|count-3",
-    queryLanguage: "en-US",
-    filter: formattedString_table,
-    select: "content, fileName"
-  });
-
-
-  // const chunk_settings = {  
-  //   method: "POST",  
-  //   headers: {  
-  //     "api-key": process.env.AI_SEARCH_KEY!,  
-  //     "Content-Type": "application/json"  
-  //   },  
-  //   body: chunksPayload 
-  // }; 
-
-
-  const summary_settings = {  
+  const settings = {  
       method: "POST",  
       headers: {  
         "api-key": process.env.AI_SEARCH_KEY!,  
         "Content-Type": "application/json"  
       },  
-      body: summaryPayload 
+      body: Payload 
     }; 
+  let outputArray;
+  let uniqueArray;
 
-  const table_settings = {  
-      method: "POST",  
-      headers: {  
-        "api-key": process.env.AI_SEARCH_KEY!,  
-        "Content-Type": "application/json"  
-      },  
-      body: tablePayload 
-    }; 
-  
-    
-  const summary_url =  process.env.AI_SEARCH_ENDPOINT! + '/indexes/summary-index/docs/search?api-version=2024-05-01-preview'
-  const table_url =  process.env.AI_SEARCH_ENDPOINT! + '/indexes/table-index/docs/search?api-version=2024-05-01-preview'
-  // const chunks_url =  process.env.AI_SEARCH_ENDPOINT! + '/indexes/chunk-index/docs/search?api-version=2024-05-01-preview'
-
-  const searchResults = await fetch(summary_url, summary_settings); 
+  const url =  process.env.AI_SEARCH_ENDPOINT! + '/indexes/' + type_search + '/docs/search?api-version=2024-05-01-preview'
+  const searchResults = await fetch(url, settings); 
   if (!searchResults.ok) {  
     throw new Error(`HTTP error! status: ${searchResults.status}`);  
   }  
 
   
-  const tablesearchResults = await fetch(table_url, table_settings); 
-  if (!tablesearchResults.ok) {  
-    throw new Error(`HTTP error! status: ${tablesearchResults.status}`);  
-  }  
-
-    
-    
-  // const chunkResults = await fetch(chunks_url, chunk_settings); 
-  // if (!chunkResults.ok) {  
-  //   throw new Error(`HTTP error! status: ${chunkResults.status}`);  
-  // }  
-
   const data_searchResults: any = await searchResults.json();
-  // const data_chunkResults: any = await chunkResults.json();
-  const data_tableResults: any = await tablesearchResults.json();
 
   const flattenedSummary_ = await Promise.all(
     data_searchResults.value.map((summ: any) => flattenCaptions(summ, '_summary'))
   );   
   
-  if (data_tableResults.value.length === 0) {
+  if (data_searchResults.value.length === 0) {
     const joinedData = await removeSearchStrings(flattenedSummary_);
     outputArray = await replaceScoreChunksKey(joinedData, '_summary');
     uniqueArray = await getUniqueValues(outputArray, ["fileName_chunks", "content_chunks"]);
   } else {
-    const flattenedTables__ = await Promise.all(
-      data_tableResults.value.map((table: any) => flattenCaptions(table, '_table'))
-    );
-    const flattenedTables_ = await getUniqueValues(flattenedTables__, ["fileName", "@search.captions.text_table"]);
-    const flattenedTables = removeFields(flattenedTables_, [
-      "@search.captions.highlights_table",
-      "@search.captions.text_table"
-    ]);
 
     const flattenedSummary = removeFields(flattenedSummary_, [
       "@search.captions.highlights_summary",
       "@search.captions.text_summary"
     ]);
-
-    const joinedData_ = await innerJoin(flattenedTables, flattenedSummary, 'fileName_table', 'fileName_summary');     
-    const joinedData = await removeSearchStrings(joinedData_);
+    const joinedData = await removeSearchStrings(flattenedSummary);
     outputArray = await replaceScoreChunksKey(joinedData, '_table');
     uniqueArray = outputArray
   }
-  return uniqueArray;
+  const summaries = uniqueArray.map((item: any) => ({
+      content_summary: item.content_summary,
+      fileName_summary: item.fileName_summary
+  }));
+  return summaries;
 };
   
 export async function Search_individual(searchRequest: string, document: string, type_search: string) {
@@ -303,25 +259,27 @@ export async function Search_individual(searchRequest: string, document: string,
   const semantic_config: { [key: string]: string } = {
     "summary-index": "summary-semantic-config",
     "json-index": "base",
-    "contracts-index": "contracts-index-semantic-configuration"
+    "contracts-index": "contracts-index-semantic-configuration",
+    "table-index" : "table-semantic-config"
   }
   const filter_type: { [key: string]: string } = {
       "summary-index": `fileName eq '${document.replace('.pdf', '')}'`,
       "json-index": `fileName eq '${document.replace('.pdf', '')}'`,
-      "contracts-index": `title eq '${document}'`
+      "contracts-index": `title eq '${document}'`,
+      "table-index" : `fileName eq '${document}'`
   }
+
+  const select_type: { [key: string]: string } = {
+    "summary-index": 'fileName, content',
+    "json-index": 'fileName, content',
+    "contracts-index": 'title, chunk',
+    "table-index" : 'fileName, content'
+}
 
     
   const Payload = JSON.stringify({
     search: searchRequest,
-    vectorQueries: [
-      {
-        kind: 'text',
-        text: searchRequest,
-        fields: 'embedding'
-      }
-    ],
-    select: 'fileName, content',
+    select: select_type[type_search],
     filter: filter_type[type_search], 
     queryType: 'semantic',
     semanticConfiguration: semantic_config[type_search],
@@ -340,7 +298,7 @@ export async function Search_individual(searchRequest: string, document: string,
     }; 
 
   const url =  process.env.AI_SEARCH_ENDPOINT! + '/indexes/' + type_search + '/docs/search?api-version=2024-05-01-preview'
-    const searchResults = await fetch(url, settings); 
+  const searchResults = await fetch(url, settings); 
   if (!searchResults.ok) {  
     throw new Error(`HTTP error! status: ${searchResults.status}`);  
   }  

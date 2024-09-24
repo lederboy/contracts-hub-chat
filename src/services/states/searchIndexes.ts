@@ -1,4 +1,7 @@
+import { OpenAIClient } from "@azure/openai";
 import { SearchResponse } from './../../apis/search';
+import {EvaluateSearch} from '../evaluatesearch';
+import { SessionManager } from "../session";
 import { VerifySearch, VerifySearch_2, Search_individual } from "../../apis/searchindexes";
 import { SearchIndexesCallData, 
         SearchMetaDataCallData, 
@@ -7,9 +10,11 @@ import { SearchIndexesCallData,
         SearchIndividualCallDataIndex,
         SearchCallDataIndex} from "./states";
 
-
+import {HistoricalQuieries} from "../session"
+type TypeSearchOptions = "json-index" | "contracts-index" | "summary-index" | "table-index";
 type DataItem = {
     score: number;
+    chunk: string;
     content: string;
     fileName: string;
     rerankerScore: number;
@@ -69,9 +74,12 @@ function generateDictionary(
             const key = dict[fileNameKey] + '.pdf';
             const { [fileNameKey]: _, ...rest } = dict;
             const restAsString = JSON.stringify(rest);
-            dict1[key] = restAsString;
-            result = { ...result, ...dict1 };
-            // result[key] = restAsString;
+            if (key in result) {
+                result[key] += '; ' + restAsString;
+            } else {
+                dict1[key] = restAsString;
+                result = { ...result, ...dict1 };
+            }
             document_list.push(key);
         });
     } else{
@@ -83,9 +91,14 @@ function generateDictionary(
             const modded_key = (dict[fileNameKey] + '.pdf').replace(/\s/g, '')
             const { [fileNameKey]: _, ...rest } = dict;
             const restAsString = JSON.stringify(rest);
-            dict1[key] = restAsString;
+            
             if (sanitizedResultKeys.includes(modded_key)) {
-                result = { ...result, ...dict1 };
+                if (key in result) {
+                    result[key] += '; ' + restAsString;
+                } else {
+                    dict1[key] = restAsString;
+                    result = { ...result, ...dict1 };
+                }
                 document_list.push(key);
             }
         });
@@ -97,12 +110,54 @@ function generateDictionary(
 }
 
 export class SearchMetadata {
-    static async run(callData: SearchMetaDataCallData): Promise<AnswerFromSearchCallDataIndex | SearchCallDataIndex | NeedsMoreContextCallData> {
-        const data_response: Data = await VerifySearch_2(callData.query);
-        const normalizedDictionaries = normalizeScores(data_response, 'score');
-        // const filteredData = filterByKey(normalizedDictionaries, 0.3, 'score');
-        const { resultDictionary, document_list } = generateDictionary(normalizedDictionaries, 'ContractFileName', {});
-        if (Object.keys(resultDictionary).length <= 2){
+    static async run(callData: SearchMetaDataCallData, 
+                     openaiClient: OpenAIClient, 
+                     deployment: string,
+                     sessionManager: SessionManager | null = null): Promise<AnswerFromSearchCallDataIndex | SearchCallDataIndex | NeedsMoreContextCallData> {
+        let evaluation = false;
+        let highestOutgoingChatOrderMessage;
+        let temp_query = '';
+        let resultDictionary:any;
+        let document_list: any;
+        if (callData.session.grounding_data.length === 0){
+            if (callData.session.chatHistory.length > 0){
+                const outgoingMessages = callData.session.chatHistory.filter(message => message.direction === 'outgoing');
+                highestOutgoingChatOrderMessage = outgoingMessages.reduce((prev, current) => (prev.chatOrder > current.chatOrder) ? prev : current);
+                temp_query += highestOutgoingChatOrderMessage.content
+
+            }
+            temp_query += '; '+ callData.query;
+            // callData.query = temp_query;
+            const data_response: Data = await VerifySearch_2(temp_query);
+            const normalizedDictionaries = normalizeScores(data_response, 'score');
+            // const filteredData = filterByKey(normalizedDictionaries, 0.3, 'score');
+            const { resultDictionary: tempResultDictionary, document_list: tempDocumentList } = generateDictionary(normalizedDictionaries, 'ContractFileName', {});
+            
+            resultDictionary = tempResultDictionary;
+            document_list = tempDocumentList;
+            // let highestChatOrderMessage: HistoricalQuieries;
+            // if (callData.session.chatHistory.length > 0){
+            //     const incomingMessages = callData.session.chatHistory.filter(message => message.direction === 'incoming');
+            //     highestChatOrderMessage = incomingMessages.reduce((prev, current) => (prev.chatOrder > current.chatOrder) ? prev : current); 
+            //     if (highestChatOrderMessage.documents!= null && highestChatOrderMessage.documents.length > 0){
+            //         document_holder.push(...highestChatOrderMessage.documents)
+            //     }
+            // }
+            // document_holder.push(...document_list)
+            
+            
+            
+            evaluation = await EvaluateSearch.run(JSON.stringify(resultDictionary), callData.query, openaiClient, deployment);  
+            if (evaluation && sessionManager !== null){
+                callData.session.grounding_data.push({key: "metadata", content: resultDictionary})
+                callData.session.grounding_data.push({key: "document_list", content: document_list})
+            }
+        }else{
+            resultDictionary = callData.session.grounding_data.filter(dict => dict.key === 'metadata').map(dict => dict.content)[0];
+            document_list = callData.session.grounding_data.filter(dict => dict.key === 'document_lista').map(dict => dict.content)[0];
+        }
+        
+        if (Object.keys(resultDictionary).length <= 2 || !evaluation){
             return {
                 state: "SEARCH_WITH_INDEXES",
                 searchResponse: resultDictionary,
@@ -161,10 +216,45 @@ function getUniqueDictionaries(dictionaries: Dictionary[]): Dictionary[] {
   
 
 export class SearchIndexes {
-    static async run(callData: SearchIndexesCallData): Promise<AnswerFromSearchCallDataIndex | NeedsMoreContextCallData> {
-        const data_response: Data = await VerifySearch(callData.query, Object.keys(callData.searchResponse));
+    static async run(callData: SearchIndexesCallData, openaiClient: OpenAIClient, deployment: string): Promise<AnswerFromSearchCallDataIndex | NeedsMoreContextCallData> {
         
-        if (data_response.length === 0) {
+        const typeSearchOptions: TypeSearchOptions[] = ["json-index", "summary-index", "table-index", "contracts-index"];
+        let evaluation = false;
+        let data_response: Data | null = null;
+        let type: string | null = null;
+        const dataResponsesArray: any[] = [];
+        
+        let highestOutgoingChatOrderMessage;
+        let temp_query = '';
+        if (callData.session.chatHistory.length > 0){
+            const outgoingMessages = callData.session.chatHistory.filter(message => message.direction === 'outgoing');
+            highestOutgoingChatOrderMessage = outgoingMessages.reduce((prev, current) => (prev.chatOrder > current.chatOrder) ? prev : current);
+            temp_query += highestOutgoingChatOrderMessage.content
+
+        }
+        temp_query += '; '+ callData.query;
+
+
+        for (const typeSearchOption of typeSearchOptions) {
+            console.log(typeSearchOption)
+            data_response = await VerifySearch(callData.query, Object.keys(callData.searchResponse), typeSearchOption);
+            evaluation = await EvaluateSearch.run(JSON.stringify(data_response), callData.query, openaiClient, deployment);      
+            console.log(evaluation)
+            if (data_response != null) {
+                dataResponsesArray.push(...data_response);
+            }
+            
+            if (evaluation){type = typeSearchOption;break;}
+            else { type = typeSearchOption;}
+        }
+
+        if (data_response === null || data_response.length === 0 || !evaluation) {
+            data_response = dataResponsesArray
+        }
+        
+        
+        
+        if (data_response === null || data_response.length === 0) {
             return  {
                 state: 'NEEDS_MORE_CONTEXT',
                 session: callData.session,
@@ -188,11 +278,24 @@ export class SearchIndexes {
         
     }
 
-    static async run_individual(callData: SearchIndividualCallDataIndex): Promise<AnswerFromSearchCallDataIndex | NeedsMoreContextCallData> {
+    static async run_individual(callData: SearchIndividualCallDataIndex, openaiClient: OpenAIClient, deployment: string): Promise<AnswerFromSearchCallDataIndex | NeedsMoreContextCallData> {
         
-        const data_response: Data = await Search_individual(callData.query, callData.documents, callData.type_search);
+        const typeSearchOptions: TypeSearchOptions[] = ["json-index", "summary-index", "table-index", "contracts-index"];
+        let evaluation = false;
+        let data_response: Data | null = null;
+        let type: string | null = null;
+
+        for (const typeSearchOption of typeSearchOptions) {
+            data_response = await Search_individual(callData.query, callData.documents, typeSearchOption);
+            evaluation = await EvaluateSearch.run(JSON.stringify(data_response), callData.query, openaiClient, deployment);      
+            console.log(evaluation)      
+            type = typeSearchOption;
+            if (evaluation){type = typeSearchOption;break;};
+        }
+
+
         
-        if (data_response.length === 0) {
+        if (data_response === null || data_response.length === 0) {
             return  {
                 state: 'NEEDS_MORE_CONTEXT',
                 session: callData.session,
@@ -202,16 +305,17 @@ export class SearchIndexes {
             const normalizedDictionaries = normalizeScores(data_response, 'score');
             const outputArray: { [key: string]: string }[] = [];
             normalizedDictionaries.forEach((item) => {
-            const parsedContent = JSON.parse(item.content);
-            const outputData = {
-                score: item.score,
-                rerankerScore: item.rerankerScore,
-                content: JSON.stringify(parsedContent)
-            };
+                const holder: string = type ==='contracts-index' ? item.chunk: item.content
+                const parsedContent = holder.replace("{","").replace("}","")
+                const outputData = {
+                    score: item.score,
+                    rerankerScore: item.rerankerScore,
+                    content: parsedContent
+                };
 
-            const formattedString = JSON.stringify(outputData);            
-            const entry = { [item.fileName]: formattedString };
-            outputArray.push(entry);
+                const formattedString = JSON.stringify(outputData);            
+                const entry = { [item.fileName]: formattedString };
+                outputArray.push(entry);
             });
             
             return {
