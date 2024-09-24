@@ -1,6 +1,7 @@
 import { OpenAIClient } from "@azure/openai";
 import { SearchResponse } from './../../apis/search';
 import {EvaluateSearch} from '../evaluatesearch';
+import { SessionManager } from "../session";
 import { VerifySearch, VerifySearch_2, Search_individual } from "../../apis/searchindexes";
 import { SearchIndexesCallData, 
         SearchMetaDataCallData, 
@@ -9,6 +10,7 @@ import { SearchIndexesCallData,
         SearchIndividualCallDataIndex,
         SearchCallDataIndex} from "./states";
 
+import {HistoricalQuieries} from "../session"
 type TypeSearchOptions = "json-index" | "contracts-index" | "summary-index" | "table-index";
 type DataItem = {
     score: number;
@@ -72,9 +74,12 @@ function generateDictionary(
             const key = dict[fileNameKey] + '.pdf';
             const { [fileNameKey]: _, ...rest } = dict;
             const restAsString = JSON.stringify(rest);
-            dict1[key] = restAsString;
-            result = { ...result, ...dict1 };
-            // result[key] = restAsString;
+            if (key in result) {
+                result[key] += '; ' + restAsString;
+            } else {
+                dict1[key] = restAsString;
+                result = { ...result, ...dict1 };
+            }
             document_list.push(key);
         });
     } else{
@@ -86,9 +91,14 @@ function generateDictionary(
             const modded_key = (dict[fileNameKey] + '.pdf').replace(/\s/g, '')
             const { [fileNameKey]: _, ...rest } = dict;
             const restAsString = JSON.stringify(rest);
-            dict1[key] = restAsString;
+            
             if (sanitizedResultKeys.includes(modded_key)) {
-                result = { ...result, ...dict1 };
+                if (key in result) {
+                    result[key] += '; ' + restAsString;
+                } else {
+                    dict1[key] = restAsString;
+                    result = { ...result, ...dict1 };
+                }
                 document_list.push(key);
             }
         });
@@ -100,13 +110,52 @@ function generateDictionary(
 }
 
 export class SearchMetadata {
-    static async run(callData: SearchMetaDataCallData, openaiClient: OpenAIClient, deployment: string): Promise<AnswerFromSearchCallDataIndex | SearchCallDataIndex | NeedsMoreContextCallData> {
+    static async run(callData: SearchMetaDataCallData, 
+                     openaiClient: OpenAIClient, 
+                     deployment: string,
+                     sessionManager: SessionManager | null = null): Promise<AnswerFromSearchCallDataIndex | SearchCallDataIndex | NeedsMoreContextCallData> {
         let evaluation = false;
-        const data_response: Data = await VerifySearch_2(callData.query);
-        const normalizedDictionaries = normalizeScores(data_response, 'score');
-        // const filteredData = filterByKey(normalizedDictionaries, 0.3, 'score');
-        const { resultDictionary, document_list } = generateDictionary(normalizedDictionaries, 'ContractFileName', {});
-        evaluation = await EvaluateSearch.run(JSON.stringify(resultDictionary), callData.query, openaiClient, deployment);      
+        let highestOutgoingChatOrderMessage;
+        let temp_query = '';
+        let resultDictionary:any;
+        let document_list: any;
+        if (callData.session.grounding_data.length === 0){
+            if (callData.session.chatHistory.length > 0){
+                const outgoingMessages = callData.session.chatHistory.filter(message => message.direction === 'outgoing');
+                highestOutgoingChatOrderMessage = outgoingMessages.reduce((prev, current) => (prev.chatOrder > current.chatOrder) ? prev : current);
+                temp_query += highestOutgoingChatOrderMessage.content
+
+            }
+            temp_query += '; '+ callData.query;
+            // callData.query = temp_query;
+            const data_response: Data = await VerifySearch_2(temp_query);
+            const normalizedDictionaries = normalizeScores(data_response, 'score');
+            // const filteredData = filterByKey(normalizedDictionaries, 0.3, 'score');
+            const { resultDictionary: tempResultDictionary, document_list: tempDocumentList } = generateDictionary(normalizedDictionaries, 'ContractFileName', {});
+            
+            resultDictionary = tempResultDictionary;
+            document_list = tempDocumentList;
+            // let highestChatOrderMessage: HistoricalQuieries;
+            // if (callData.session.chatHistory.length > 0){
+            //     const incomingMessages = callData.session.chatHistory.filter(message => message.direction === 'incoming');
+            //     highestChatOrderMessage = incomingMessages.reduce((prev, current) => (prev.chatOrder > current.chatOrder) ? prev : current); 
+            //     if (highestChatOrderMessage.documents!= null && highestChatOrderMessage.documents.length > 0){
+            //         document_holder.push(...highestChatOrderMessage.documents)
+            //     }
+            // }
+            // document_holder.push(...document_list)
+            
+            
+            
+            evaluation = await EvaluateSearch.run(JSON.stringify(resultDictionary), callData.query, openaiClient, deployment);  
+            if (evaluation && sessionManager !== null){
+                callData.session.grounding_data.push({key: "metadata", content: resultDictionary})
+                callData.session.grounding_data.push({key: "document_list", content: document_list})
+            }
+        }else{
+            resultDictionary = callData.session.grounding_data.filter(dict => dict.key === 'metadata').map(dict => dict.content)[0];
+            document_list = callData.session.grounding_data.filter(dict => dict.key === 'document_lista').map(dict => dict.content)[0];
+        }
         
         if (Object.keys(resultDictionary).length <= 2 || !evaluation){
             return {
@@ -173,14 +222,36 @@ export class SearchIndexes {
         let evaluation = false;
         let data_response: Data | null = null;
         let type: string | null = null;
+        const dataResponsesArray: any[] = [];
+        
+        let highestOutgoingChatOrderMessage;
+        let temp_query = '';
+        if (callData.session.chatHistory.length > 0){
+            const outgoingMessages = callData.session.chatHistory.filter(message => message.direction === 'outgoing');
+            highestOutgoingChatOrderMessage = outgoingMessages.reduce((prev, current) => (prev.chatOrder > current.chatOrder) ? prev : current);
+            temp_query += highestOutgoingChatOrderMessage.content
+
+        }
+        temp_query += '; '+ callData.query;
+
 
         for (const typeSearchOption of typeSearchOptions) {
+            console.log(typeSearchOption)
             data_response = await VerifySearch(callData.query, Object.keys(callData.searchResponse), typeSearchOption);
             evaluation = await EvaluateSearch.run(JSON.stringify(data_response), callData.query, openaiClient, deployment);      
-            console.log(evaluation)      
-            if (evaluation){type = typeSearchOption;break;};
+            console.log(evaluation)
+            if (data_response != null) {
+                dataResponsesArray.push(...data_response);
+            }
+            
+            if (evaluation){type = typeSearchOption;break;}
+            else { type = typeSearchOption;}
         }
 
+        if (data_response === null || data_response.length === 0 || !evaluation) {
+            data_response = dataResponsesArray
+        }
+        
         
         
         if (data_response === null || data_response.length === 0) {

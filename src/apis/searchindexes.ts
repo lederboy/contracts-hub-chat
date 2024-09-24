@@ -180,13 +180,28 @@ export async function VerifySearch(searchRequest: string, file_array: string[], 
     "summary-index": file_array.map(name => `fileName eq '${name.replace('.pdf', '')}'`).join(' or '),
     "json-index": file_array.map(name => `fileName eq '${name.replace('.pdf', '')}'`).join(' or '),
     "contracts-index": file_array.map(name => `title eq '${name}'`).join(' or '),
-    "table-index" : file_array.map(name => `fileName eq '${name}'`).join(' or ')
+    "table-index" : file_array.map(name => `fileName eq '${name.replace('.pdf', '')}'`).join(' or ')
+  }
+
+  const vectorQueries_fields: { [key: string]: string } = {
+    "summary-index": "embedding",
+    "json-index": "embedding",
+    "contracts-index": "text_vector",
+    "table-index" : "embedding"
   }
 
   const Payload = JSON.stringify({
     search: searchRequest,
     select: select_type[type_search],
     filter: filter_type[type_search], 
+    count: true,
+    vectorQueries: [
+      {
+        kind: "text",
+        text: searchRequest,
+        fields: vectorQueries_fields[type_search]
+      }
+    ],    
     queryType: 'semantic',
     semanticConfiguration: semantic_config[type_search],
     captions: 'extractive',
@@ -232,7 +247,11 @@ export async function VerifySearch(searchRequest: string, file_array: string[], 
     outputArray = await replaceScoreChunksKey(joinedData, '_table');
     uniqueArray = outputArray
   }
-  return uniqueArray;
+  const summaries = uniqueArray.map((item: any) => ({
+      content_summary: item.content_summary,
+      fileName_summary: item.fileName_summary
+  }));
+  return summaries;
 };
   
 export async function Search_individual(searchRequest: string, document: string, type_search: string) {

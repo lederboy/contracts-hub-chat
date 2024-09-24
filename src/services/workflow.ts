@@ -8,6 +8,7 @@ import { Search } from "./states/search";
 import { AnswerQueryFromSearch } from "./states/answerFromSearch";
 import { GetDocuments } from "./states/getDocuments";
 import { NeedsMoreContext } from "./states/needsMoreContext";
+import { SessionManager } from "../services/session";
 
 export class WorkflowError extends Error {}
 
@@ -22,7 +23,7 @@ export class ChatWorkflow {
         this.contractsHubCredentials = contractsHubCredentials
     }
 
-    async run(callData: CallData): Promise<CallData>{
+    async run(callData: CallData, sessionManager: SessionManager | null= null): Promise<CallData>{
         if(callData.state === "MODIFY_QUERY_WITH_HISTORY"){
             return await ModifyQueryWithHistory.run(callData, this.openaiClient, this.openaiDeployments.completions)
         }

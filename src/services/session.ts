@@ -21,9 +21,17 @@ export interface HistoricalQuieries {
     explanation?: string
 }
 
+export interface GroundingData {
+    key: string
+    content: any
+    
+}
+
+
 export interface ChatHistory_AI {
     sessionId: string
     title: string
+    grounding_data: GroundingData[]
     chatHistory: HistoricalQuieries[]
 }
 
@@ -34,6 +42,7 @@ export interface ChatSession_AI {
 
 export class SessionManager {
     sessionPrefix: string = 'sessions'
+    user: string = 'Admin'
     containerClient: ContainerClient
     constructor(containerClient: ContainerClient){
         this.containerClient = containerClient
@@ -47,7 +56,9 @@ export class SessionManager {
                 return json_session.conversations.map((entry: { sessionId: any; title: any; }) => ({
                     sessionId: entry.sessionId,
                     title: entry.title,
+                    grounding_data: [],
                     chatHistory: []
+                    
                   }));
             }
             let session = json_session.conversations.find((conv: { sessionId: any; }) => conv.sessionId === sessionId);
@@ -58,11 +69,15 @@ export class SessionManager {
                         chat.chatOrder = index;
                       }
                   });
+                if (!("grounding_data" in session)){
+                    session.grounding_data = []
+                }
                 return session
             }else{
                 return {
                     sessionId : sessionId,
                     title: '',
+                    grounding_data: [],
                     chatHistory: []
                 }
             }
@@ -71,6 +86,7 @@ export class SessionManager {
         return {
                 sessionId : sessionId,
                 title: '',
+                grounding_data: [],
                 chatHistory: []
             }
 
@@ -139,6 +155,33 @@ export class SessionManager {
         return false
     }
     async saveSession(user: string, session: ChatHistory_AI) {
+        let userSession;
+        const blobClient = this.containerClient.getBlockBlobClient(`${this.sessionPrefix}/${user}.json`)
+        if(await blobClient.exists()){
+            const sessionStr = (await blobClient.downloadToBuffer()).toString()
+            userSession = JSON.parse(sessionStr)
+            
+        }else {
+            userSession = {
+                user: user,
+                conversations: []
+              };
+            // await blobClient.upload(chatStr, chatStr.length)
+        }
+        let conversation = userSession.conversations.find((conv: { sessionId: any; }) => conv.sessionId === session.sessionId);
+        
+        if (!conversation) {
+            userSession.conversations.push(session);
+        }else{
+            // conversation.chatHistory.push(...session.chatHistory.slice(Math.max(session.chatHistory.length - 2, 0)));
+            conversation.chatHistory= session.chatHistory;
+        }
+        const updatedContent = JSON.stringify(userSession);
+        await blobClient.upload(updatedContent, Buffer.byteLength(updatedContent));
+        
+    }
+
+    async saveMetaData(user: string, session: ChatHistory_AI) {
         let userSession;
         const blobClient = this.containerClient.getBlockBlobClient(`${this.sessionPrefix}/${user}.json`)
         if(await blobClient.exists()){

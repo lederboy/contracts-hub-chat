@@ -28,10 +28,11 @@ export class EvaluateSearch {
         const isExceeding = isTokenCountExceedingLimit(response_, tokenLimit);
         let prompt_chat: CustomChatEvaluateResponse[] = [EvaluateSearchResponse];
         if (isExceeding) {
-            deployment = 'gpt-4o';
+            deployment = 'gpt-4';
         }else{
             deployment = 'gpt-35-turbo';
         }
+        console.log(deployment)
         const completion = await openaiClient.getChatCompletions(
             deployment,
             prompt_chat.concat([{role: 'user', content: response_}]),

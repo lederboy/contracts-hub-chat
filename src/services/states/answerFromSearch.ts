@@ -1,3 +1,4 @@
+import { ChatHistory } from './../session';
 import { OpenAIClient, ChatRequestMessage, ChatRequestSystemMessage  } from "@azure/openai";
 import { AnswerQueryFromSearchPrompt,CustomChatRequestMessage } from "../../prompts/formatSearchQuery";
 import { AnswerFromSearchCallData, AnswerFromSearchCallDataIndex, EvaluateCallData } from "./states";
@@ -10,6 +11,13 @@ function isTokenCountExceedingLimit(text: string, limit: number = 4096): boolean
 interface CallData {
     documents: string[];
 }
+interface Message {
+    direction: string;
+    content: string;
+    chatOrder: number;
+    documents?: any[];
+    score?: string;
+  }
 
 interface OriginalEntry {
     direction: string;
@@ -50,7 +58,23 @@ function convertEntries(entries: OriginalEntry[]): CustomChatRequestMessage [] {
 }
 
 export class AnswerQueryFromSearch {
-    static formatUserPrompt(mapping: any, query: string): string {
+    static formatUserPrompt(mapping: any, query: string, ChatHistory: Message[]): string {
+        let highestChatOrderMessage;
+        let highestOutgoingChatOrderMessage;
+        if (ChatHistory.length > 0){
+            const incomingMessages = ChatHistory.filter(message => message.direction === 'incoming');
+            highestChatOrderMessage = incomingMessages.reduce((prev, current) => (prev.chatOrder > current.chatOrder) ? prev : current);
+            
+            const outgoingMessages = ChatHistory.filter(message => message.direction === 'outgoing');
+            highestOutgoingChatOrderMessage = outgoingMessages.reduce((prev, current) => (prev.chatOrder > current.chatOrder) ? prev : current);
+            // temp_query += highestOutgoingChatOrderMessage.content
+        }
+        // temp_query += ' ' + query
+        const historicalContextString = ChatHistory.length > 0 ? `
+                Historical Context:
+                    ${JSON.stringify(highestChatOrderMessage)}
+        ` : '';
+        
         // let mappingStrings;
         let mappingStrings: string[] = [];
         if (Array.isArray(mapping)){
@@ -67,19 +91,33 @@ export class AnswerQueryFromSearch {
         }else{
             mappingStrings = Object.keys(mapping).map((k) => `${k} -> ${mapping[k]}`)
         }
+        
 
-        return `
-        Based on the provided mappings, please respond the question asked by the user.
+        return `        
+        Based on the provided mappings and if the historical context exist, please respond the question asked by the user.
+        ${historicalContextString}
         Mappings:
             ${mappingStrings.join('\n')}
         Query:
             ${query}
-        
+        If your response involves referring to a file in .pdf format or a specific document from the provided list, please enclose it in angle brackets like <contract.pdf> or <contract>
         
         `
     }
     static async run(callData: AnswerFromSearchCallData, openaiClient: OpenAIClient, deployment: string, overrideDeployment: boolean = false): Promise<EvaluateCallData> {
-        const response_ = this.formatUserPrompt(callData.searchResponse, callData.query)
+        
+        let highestOutgoingChatOrderMessage;
+        let temp_query = '';
+        if (callData.session.chatHistory.length > 0){
+            const outgoingMessages = callData.session.chatHistory.filter(message => message.direction === 'outgoing');
+            highestOutgoingChatOrderMessage = outgoingMessages.reduce((prev, current) => (prev.chatOrder > current.chatOrder) ? prev : current);
+            temp_query += highestOutgoingChatOrderMessage.content
+
+        }
+        temp_query += ';'+ callData.query;
+        
+        
+        const response_ = this.formatUserPrompt(callData.searchResponse, temp_query, callData.session.chatHistory)
         
         
         const tokenLimit = 4096;

@@ -12,6 +12,7 @@ import { AnswerQueryFromSearch } from "./states/answerFromSearch";
 import { EvaluateLLMResponse } from "./states/evaluateResponse";
 import { GetDocuments } from "./states/getDocuments";
 import { NeedsMoreContext } from "./states/needsMoreContext";
+import { SessionManager } from "./session";
 
 export class WorkflowError extends Error {}
 
@@ -26,7 +27,7 @@ export class ChatWorkflowAIS {
         this.contractsHubCredentials = contractsHubCredentials
     }
 
-    async run(callData: CallData): Promise<CallData>{
+    async run(callData: CallData, sessionManager: SessionManager): Promise<CallData>{
         if(callData.state === "DEFINE_QUERY_TITLE"){
             return await DefineQueryTitle.run(callData, this.openaiClient, this.openaiDeployments.completions)
         }
@@ -37,7 +38,7 @@ export class ChatWorkflowAIS {
             return await ModifyQueryWithHistory.run(callData, this.openaiClient, this.openaiDeployments.completions)
         }
         else if(callData.state === "SEARCH_WITH_METADATA"){
-            return await SearchMetadata.run(callData, this.openaiClient, this.openaiDeployments.completions)
+            return await SearchMetadata.run(callData, this.openaiClient, this.openaiDeployments.completions, sessionManager)
         }
         else if(callData.state === "SEARCH_IND_INDEXES"){
             return await SearchIndexes.run_individual(callData, this.openaiClient, this.openaiDeployments.completions)
