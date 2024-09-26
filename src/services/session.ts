@@ -1,5 +1,5 @@
 import { FilterQuery } from './../prompts/searchQuery';
-import { ContainerClient } from "@azure/storage-blob";
+import { ContainerClient, BlockBlobClient } from "@azure/storage-blob";
 
 
 export interface ChatHistory {
@@ -30,6 +30,7 @@ export interface GroundingData {
 
 export interface ChatHistory_AI {
     sessionId: string
+    contract_type: string
     title: string
     grounding_data: GroundingData[]
     chatHistory: HistoricalQuieries[]
@@ -47,8 +48,17 @@ export class SessionManager {
     constructor(containerClient: ContainerClient){
         this.containerClient = containerClient
     }
-    async loadSession(user: string, sessionId: string, documentNames?: string[]): Promise<ChatHistory_AI>{
-        const blobClient = this.containerClient.getBlobClient(`${this.sessionPrefix}/${user}.json`)
+    async loadSession(user: string, sessionId: string, contract_type: string, documentNames?: string[]): Promise<ChatHistory_AI>{
+        let file_name: string;
+        if (contract_type === 'pharmacy-contracts'){
+            file_name = `${this.sessionPrefix}/${user}.json`;
+            // contract_type = 'pharmacy-contracts'
+
+        }else{
+            file_name = `${this.sessionPrefix}/${contract_type}_${user}.json`;
+        }
+        const blobClient = this.containerClient.getBlobClient(file_name)
+
         if(await blobClient.exists()){
             const sessionStr = (await blobClient.downloadToBuffer()).toString()
             let json_session = JSON.parse(sessionStr)
@@ -72,10 +82,14 @@ export class SessionManager {
                 if (!("grounding_data" in session)){
                     session.grounding_data = []
                 }
+                if (!("contract_type" in session)){
+                    session.contract_type = contract_type
+                }
                 return session
             }else{
                 return {
                     sessionId : sessionId,
+                    contract_type: contract_type,
                     title: '',
                     grounding_data: [],
                     chatHistory: []
@@ -85,6 +99,7 @@ export class SessionManager {
         }
         return {
                 sessionId : sessionId,
+                contract_type: contract_type,
                 title: '',
                 grounding_data: [],
                 chatHistory: []
@@ -154,9 +169,17 @@ export class SessionManager {
         }
         return false
     }
-    async saveSession(user: string, session: ChatHistory_AI) {
+    async saveSession(user: string, session: ChatHistory_AI, contract_type: string) {
+        let file_name: string;
         let userSession;
-        const blobClient = this.containerClient.getBlockBlobClient(`${this.sessionPrefix}/${user}.json`)
+        if (contract_type === 'pharmacy-contracts'){
+            file_name = `${this.sessionPrefix}/${user}.json`;
+            // contract_type = 'pharmacy-contracts'
+
+        }else{
+            file_name = `${this.sessionPrefix}/${contract_type}_${user}.json`;
+        }
+        const blobClient = this.containerClient.getBlockBlobClient(file_name)
         if(await blobClient.exists()){
             const sessionStr = (await blobClient.downloadToBuffer()).toString()
             userSession = JSON.parse(sessionStr)

@@ -27,7 +27,7 @@ export class ChatWorkflowAIS {
         this.contractsHubCredentials = contractsHubCredentials
     }
 
-    async run(callData: CallData, sessionManager: SessionManager): Promise<CallData>{
+    async run(callData: CallData): Promise<CallData>{
         if(callData.state === "DEFINE_QUERY_TITLE"){
             return await DefineQueryTitle.run(callData, this.openaiClient, this.openaiDeployments.completions)
         }
@@ -38,7 +38,7 @@ export class ChatWorkflowAIS {
             return await ModifyQueryWithHistory.run(callData, this.openaiClient, this.openaiDeployments.completions)
         }
         else if(callData.state === "SEARCH_WITH_METADATA"){
-            return await SearchMetadata.run(callData, this.openaiClient, this.openaiDeployments.completions, sessionManager)
+            return await SearchMetadata.run(callData, this.openaiClient, this.openaiDeployments.completions)
         }
         else if(callData.state === "SEARCH_IND_INDEXES"){
             return await SearchIndexes.run_individual(callData, this.openaiClient, this.openaiDeployments.completions)

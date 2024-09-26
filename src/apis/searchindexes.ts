@@ -129,7 +129,7 @@ const removeFields = (array: Dictionary[], fields: string[]): Dictionary[] => {
 };
 
 
-export async function VerifySearch_2(searchRequest: string) {
+export async function VerifySearch_meta(searchRequest: string, contract_type: string) {
   
      
   const summaryPayload = JSON.stringify({
@@ -159,35 +159,40 @@ export async function VerifySearch_2(searchRequest: string) {
   return joinedData;
 };
 
-export async function VerifySearch(searchRequest: string, file_array: string[], type_search: string) {
-  
+export async function VerifySearch(searchRequest: string, file_array: string[], type_search: string, contract_type: string) {
+  let prefix: string;
+  if (contract_type ==='pharmacy-contracts'){
+    prefix = ''
+  }else{
+    prefix = contract_type+'_'
+  }
   const semantic_config: { [key: string]: string } = {
-    "summary-index": "summary-semantic-config",
-    "json-index": "base",
-    "contracts-index": "contracts-index-semantic-configuration",
-    "table-index" : "table-semantic-config"
+    [`${prefix}summary-index`]: "summary-semantic-config",
+    [`${prefix}json-index`]: "base",
+    [`${prefix}contracts-index`]: "contracts-index-semantic-configuration",
+    [`${prefix}table-index`]: "table-semantic-config"
   }
 
   const select_type: { [key: string]: string } = {
-    "summary-index": 'fileName, content',
-    "json-index": 'fileName, content',
-    "contracts-index": 'title, chunk',
-    "table-index" : 'fileName, content'
+    [`${prefix}summary-index`]: 'fileName, content',
+    [`${prefix}json-index`]: 'fileName, content',
+    [`${prefix}contracts-index`]: 'title, chunk',
+    [`${prefix}table-index`] : 'fileName, content'
   }
 
 
   const filter_type: { [key: string]: string } = {
-    "summary-index": file_array.map(name => `fileName eq '${name.replace('.pdf', '')}'`).join(' or '),
-    "json-index": file_array.map(name => `fileName eq '${name.replace('.pdf', '')}'`).join(' or '),
-    "contracts-index": file_array.map(name => `title eq '${name}'`).join(' or '),
-    "table-index" : file_array.map(name => `fileName eq '${name.replace('.pdf', '')}'`).join(' or ')
+    [`${prefix}summary-index`]: file_array.map(name => `fileName eq '${name.replace('.pdf', '')}'`).join(' or '),
+    [`${prefix}json-index`]: file_array.map(name => `fileName eq '${name.replace('.pdf', '')}'`).join(' or '),
+    [`${prefix}contracts-index`]: file_array.map(name => `title eq '${name}'`).join(' or '),
+    [`${prefix}table-index`] : file_array.map(name => `fileName eq '${name.replace('.pdf', '')}'`).join(' or ')
   }
 
   const vectorQueries_fields: { [key: string]: string } = {
-    "summary-index": "embedding",
-    "json-index": "embedding",
-    "contracts-index": "text_vector",
-    "table-index" : "embedding"
+    [`${prefix}summary-index`]: "embedding",
+    [`${prefix}json-index`]: "embedding",
+    [`${prefix}contracts-index`]: "text_vector",
+    [`${prefix}table-index`] : "embedding"
   }
 
   const Payload = JSON.stringify({
@@ -254,27 +259,45 @@ export async function VerifySearch(searchRequest: string, file_array: string[], 
   return summaries;
 };
   
-export async function Search_individual(searchRequest: string, document: string, type_search: string) {
-  let outputArray;
-  const semantic_config: { [key: string]: string } = {
-    "summary-index": "summary-semantic-config",
-    "json-index": "base",
-    "contracts-index": "contracts-index-semantic-configuration",
-    "table-index" : "table-semantic-config"
+export async function Search_individual(searchRequest: string, document: string, type_search: string, contract_type: string) {
+  let prefix: string;
+  if (contract_type ==='pharmacy-contracts'){
+    prefix = ''
+  }else{
+    prefix = contract_type+'_'
   }
-  const filter_type: { [key: string]: string } = {
-      "summary-index": `fileName eq '${document.replace('.pdf', '')}'`,
-      "json-index": `fileName eq '${document.replace('.pdf', '')}'`,
-      "contracts-index": `title eq '${document}'`,
-      "table-index" : `fileName eq '${document}'`
+  const semantic_config: { [key: string]: string } = {
+    [`${prefix}summary-index`]: "summary-semantic-config",
+    [`${prefix}json-index`]: "base",
+    [`${prefix}contracts-index`]: "contracts-index-semantic-configuration",
+    [`${prefix}table-index`]: "table-semantic-config"
   }
 
   const select_type: { [key: string]: string } = {
-    "summary-index": 'fileName, content',
-    "json-index": 'fileName, content',
-    "contracts-index": 'title, chunk',
-    "table-index" : 'fileName, content'
-}
+    [`${prefix}summary-index`]: 'fileName, content',
+    [`${prefix}json-index`]: 'fileName, content',
+    [`${prefix}contracts-index`]: 'title, chunk',
+    [`${prefix}table-index`] : 'fileName, content'
+  }
+
+
+  const filter_type: { [key: string]: string } = {
+    [`${prefix}summary-index`]: `fileName eq '${document.replace('.pdf', '')}'`,
+    [`${prefix}json-index`]: `fileName eq '${document.replace('.pdf', '')}'`,
+    [`${prefix}contracts-index`]: `title eq '${document}'`,
+    [`${prefix}table-index`] : `fileName eq '${document.replace('.pdf', '')}'`
+  }
+
+  const vectorQueries_fields: { [key: string]: string } = {
+    [`${prefix}summary-index`]: "embedding",
+    [`${prefix}json-index`]: "embedding",
+    [`${prefix}contracts-index`]: "text_vector",
+    [`${prefix}table-index`] : "embedding"
+  }
+
+
+  //
+  
 
     
   const Payload = JSON.stringify({

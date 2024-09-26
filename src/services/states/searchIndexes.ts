@@ -2,7 +2,7 @@ import { OpenAIClient } from "@azure/openai";
 import { SearchResponse } from './../../apis/search';
 import {EvaluateSearch} from '../evaluatesearch';
 import { SessionManager } from "../session";
-import { VerifySearch, VerifySearch_2, Search_individual } from "../../apis/searchindexes";
+import { VerifySearch, VerifySearch_meta, Search_individual } from "../../apis/searchindexes";
 import { SearchIndexesCallData, 
         SearchMetaDataCallData, 
         AnswerFromSearchCallDataIndex, 
@@ -11,7 +11,7 @@ import { SearchIndexesCallData,
         SearchCallDataIndex} from "./states";
 
 import {HistoricalQuieries} from "../session"
-type TypeSearchOptions = "json-index" | "contracts-index" | "summary-index" | "table-index";
+// type TypeSearchOptions = "json-index" | "contracts-index" | "summary-index" | "table-index";
 type DataItem = {
     score: number;
     chunk: string;
@@ -112,14 +112,13 @@ function generateDictionary(
 export class SearchMetadata {
     static async run(callData: SearchMetaDataCallData, 
                      openaiClient: OpenAIClient, 
-                     deployment: string,
-                     sessionManager: SessionManager | null = null): Promise<AnswerFromSearchCallDataIndex | SearchCallDataIndex | NeedsMoreContextCallData> {
+                     deployment: string): Promise<AnswerFromSearchCallDataIndex | SearchCallDataIndex | NeedsMoreContextCallData> {
         let evaluation = false;
         let highestOutgoingChatOrderMessage;
         let temp_query = '';
-        let resultDictionary:any;
-        let document_list: any;
-        if (callData.session.grounding_data.length === 0){
+        let resultDictionary:any = {};
+        let document_list: any = [];
+        if (callData.session.grounding_data.length === 0 && callData.session.contract_type === 'pharmacy-contracts'){
             if (callData.session.chatHistory.length > 0){
                 const outgoingMessages = callData.session.chatHistory.filter(message => message.direction === 'outgoing');
                 highestOutgoingChatOrderMessage = outgoingMessages.reduce((prev, current) => (prev.chatOrder > current.chatOrder) ? prev : current);
@@ -128,7 +127,7 @@ export class SearchMetadata {
             }
             temp_query += '; '+ callData.query;
             // callData.query = temp_query;
-            const data_response: Data = await VerifySearch_2(temp_query);
+            const data_response: Data = await VerifySearch_meta(temp_query, callData.session.contract_type);
             const normalizedDictionaries = normalizeScores(data_response, 'score');
             // const filteredData = filterByKey(normalizedDictionaries, 0.3, 'score');
             const { resultDictionary: tempResultDictionary, document_list: tempDocumentList } = generateDictionary(normalizedDictionaries, 'ContractFileName', {});
@@ -148,13 +147,16 @@ export class SearchMetadata {
             
             
             evaluation = await EvaluateSearch.run(JSON.stringify(resultDictionary), callData.query, openaiClient, deployment);  
-            if (evaluation && sessionManager !== null){
-                callData.session.grounding_data.push({key: "metadata", content: resultDictionary})
-                callData.session.grounding_data.push({key: "document_list", content: document_list})
-            }
+            callData.session.grounding_data.push({key: "metadata", content: resultDictionary})
+            callData.session.grounding_data.push({key: "document_list", content: document_list})
         }else{
             resultDictionary = callData.session.grounding_data.filter(dict => dict.key === 'metadata').map(dict => dict.content)[0];
             document_list = callData.session.grounding_data.filter(dict => dict.key === 'document_lista').map(dict => dict.content)[0];
+            
+        }
+        if (resultDictionary === undefined){
+            resultDictionary = {}
+            document_list = []
         }
         
         if (Object.keys(resultDictionary).length <= 2 || !evaluation){
@@ -217,8 +219,16 @@ function getUniqueDictionaries(dictionaries: Dictionary[]): Dictionary[] {
 
 export class SearchIndexes {
     static async run(callData: SearchIndexesCallData, openaiClient: OpenAIClient, deployment: string): Promise<AnswerFromSearchCallDataIndex | NeedsMoreContextCallData> {
+        let typeSearchOptions: string[];
+        if (callData.session.contract_type === 'pharmacy-contracts'){
+            typeSearchOptions= ["json-index", "summary-index", "table-index", "contracts-index"];
+        }else{
+            typeSearchOptions= [`${callData.session.contract_type}_json-index`, 
+                                `${callData.session.contract_type}_summary-index`, 
+                                `${callData.session.contract_type}_table-index`, 
+                                `${callData.session.contract_type}_contracts-index`];
+        }
         
-        const typeSearchOptions: TypeSearchOptions[] = ["json-index", "summary-index", "table-index", "contracts-index"];
         let evaluation = false;
         let data_response: Data | null = null;
         let type: string | null = null;
@@ -237,7 +247,7 @@ export class SearchIndexes {
 
         for (const typeSearchOption of typeSearchOptions) {
             console.log(typeSearchOption)
-            data_response = await VerifySearch(callData.query, Object.keys(callData.searchResponse), typeSearchOption);
+            data_response = await VerifySearch(callData.query, Object.keys(callData.searchResponse), typeSearchOption, callData.session.contract_type);
             evaluation = await EvaluateSearch.run(JSON.stringify(data_response), callData.query, openaiClient, deployment);      
             console.log(evaluation)
             if (data_response != null) {
@@ -280,13 +290,13 @@ export class SearchIndexes {
 
     static async run_individual(callData: SearchIndividualCallDataIndex, openaiClient: OpenAIClient, deployment: string): Promise<AnswerFromSearchCallDataIndex | NeedsMoreContextCallData> {
         
-        const typeSearchOptions: TypeSearchOptions[] = ["json-index", "summary-index", "table-index", "contracts-index"];
+        const typeSearchOptions = ["json-index", "summary-index", "table-index", "contracts-index"];
         let evaluation = false;
         let data_response: Data | null = null;
         let type: string | null = null;
 
         for (const typeSearchOption of typeSearchOptions) {
-            data_response = await Search_individual(callData.query, callData.documents, typeSearchOption);
+            data_response = await Search_individual(callData.query, callData.documents, typeSearchOption, callData.session.contract_type);
             evaluation = await EvaluateSearch.run(JSON.stringify(data_response), callData.query, openaiClient, deployment);      
             console.log(evaluation)      
             type = typeSearchOption;
@@ -304,8 +314,14 @@ export class SearchIndexes {
         } else {
             const normalizedDictionaries = normalizeScores(data_response, 'score');
             const outputArray: { [key: string]: string }[] = [];
+            let prefix: string;
+            if (callData.session.contract_type ==='pharmacy-contracts'){
+                prefix = ''
+            }else{
+                prefix = callData.session.contract_type+'_'
+            }
             normalizedDictionaries.forEach((item) => {
-                const holder: string = type ==='contracts-index' ? item.chunk: item.content
+                const holder: string = type ===`${prefix}contracts-index` ? item.chunk: item.content
                 const parsedContent = holder.replace("{","").replace("}","")
                 const outputData = {
                     score: item.score,
