@@ -19,7 +19,7 @@ export async function HistoricalChat(request: HttpRequest, context: InvocationCo
     const chatSesh = ChatHistorySession.parse(await request.json());
     let sessionId = chatSesh.sessionId;
     let user = chatSesh.user;
-    let contract_type = chatSesh.contract_type==undefined? 'pharmacy-contracts': chatSesh.contract_type;
+    let contract_type = chatSesh.contract_type==undefined? 'pharmacy': chatSesh.contract_type;
     // let sessionId = ''
     const session = await sessionManager.loadSession(user, sessionId, contract_type)
     if(!sessionId){

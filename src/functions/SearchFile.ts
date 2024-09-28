@@ -35,7 +35,7 @@ export async function SearchFile(request: HttpRequest, context: InvocationContex
     )
 
     const chatSesh = ChatSearchSessionSchema.parse(await request.json())
-    let contract_type = chatSesh.contract_type==undefined? 'pharmacy-contracts': chatSesh.contract_type;
+    let contract_type = chatSesh.contract_type==undefined? 'pharmacy': chatSesh.contract_type;
     let sessionId = ''
     if(sessionId){
         context.log({sessionId: sessionId, status: 'usingExistingSession'})

@@ -87,12 +87,15 @@ function generateDictionary(
     
         resultDictionary.forEach(dict => {
             let dict1: { [key: string]: string } = {};
-            const key = dict[fileNameKey] + '.pdf';
-            const modded_key = (dict[fileNameKey] + '.pdf').replace(/\s/g, '')
+            const parts = dict[fileNameKey].split('/');
+            const modded_key_split = parts[parts.length - 1];
+            const key = modded_key_split + '.pdf';
+            const modded_key_unplsit = (modded_key_split + '.pdf').replace(/\s/g, '')
+            
             const { [fileNameKey]: _, ...rest } = dict;
             const restAsString = JSON.stringify(rest);
             
-            if (sanitizedResultKeys.includes(modded_key)) {
+            if (sanitizedResultKeys.includes(modded_key_unplsit)) {
                 if (key in result) {
                     result[key] += '; ' + restAsString;
                 } else {
@@ -104,9 +107,11 @@ function generateDictionary(
         });
     
     }
-
     
-    return { resultDictionary: result, document_list };
+    const uniqueSet = new Set(document_list);
+    const uniqueList = Array.from(uniqueSet);
+    
+    return { resultDictionary: result, document_list: uniqueList };
 }
 
 export class SearchMetadata {
@@ -115,19 +120,19 @@ export class SearchMetadata {
                      deployment: string): Promise<AnswerFromSearchCallDataIndex | SearchCallDataIndex | NeedsMoreContextCallData> {
         let evaluation = false;
         let highestOutgoingChatOrderMessage;
-        let temp_query = '';
+        // let temp_query = '';
         let resultDictionary:any = {};
         let document_list: any = [];
-        if (callData.session.grounding_data.length === 0 && callData.session.contract_type === 'pharmacy-contracts'){
-            if (callData.session.chatHistory.length > 0){
-                const outgoingMessages = callData.session.chatHistory.filter(message => message.direction === 'outgoing');
-                highestOutgoingChatOrderMessage = outgoingMessages.reduce((prev, current) => (prev.chatOrder > current.chatOrder) ? prev : current);
-                temp_query += highestOutgoingChatOrderMessage.content
+        if (callData.session.grounding_data.length === 0 && callData.session.contract_type === 'pharmacy'){
+            // if (callData.session.chatHistory.length > 0){
+            //     const outgoingMessages = callData.session.chatHistory.filter(message => message.direction === 'outgoing');
+            //     highestOutgoingChatOrderMessage = outgoingMessages.reduce((prev, current) => (prev.chatOrder > current.chatOrder) ? prev : current);
+            //     temp_query += highestOutgoingChatOrderMessage.content
 
-            }
-            temp_query += '; '+ callData.query;
+            // }
+            // temp_query += '; '+ callData.query;
             // callData.query = temp_query;
-            const data_response: Data = await VerifySearch_meta(temp_query, callData.session.contract_type);
+            const data_response: Data = await VerifySearch_meta(callData.query, callData.session.contract_type);
             const normalizedDictionaries = normalizeScores(data_response, 'score');
             // const filteredData = filterByKey(normalizedDictionaries, 0.3, 'score');
             const { resultDictionary: tempResultDictionary, document_list: tempDocumentList } = generateDictionary(normalizedDictionaries, 'ContractFileName', {});
@@ -220,33 +225,36 @@ function getUniqueDictionaries(dictionaries: Dictionary[]): Dictionary[] {
 export class SearchIndexes {
     static async run(callData: SearchIndexesCallData, openaiClient: OpenAIClient, deployment: string): Promise<AnswerFromSearchCallDataIndex | NeedsMoreContextCallData> {
         let typeSearchOptions: string[];
-        if (callData.session.contract_type === 'pharmacy-contracts'){
-            typeSearchOptions= ["json-index", "summary-index", "table-index", "contracts-index"];
-        }else{
-            typeSearchOptions= [`${callData.session.contract_type}_json-index`, 
+        // if (callData.session.contract_type === 'pharmacy-contracts'){
+        //     typeSearchOptions= ["json-index", "summary-index", "table-index", "contracts-index"];
+        // }else{
+        //     typeSearchOptions= [`${callData.session.contract_type}_json-index`];
+        // }
+        typeSearchOptions= [`${callData.session.contract_type}_json-index`, 
                                 `${callData.session.contract_type}_summary-index`, 
                                 `${callData.session.contract_type}_table-index`, 
-                                `${callData.session.contract_type}_contracts-index`];
-        }
-        
+                                `${callData.session.contract_type}_chunk-index`];
         let evaluation = false;
         let data_response: Data | null = null;
         let type: string | null = null;
         const dataResponsesArray: any[] = [];
         
         let highestOutgoingChatOrderMessage;
-        let temp_query = '';
-        if (callData.session.chatHistory.length > 0){
-            const outgoingMessages = callData.session.chatHistory.filter(message => message.direction === 'outgoing');
-            highestOutgoingChatOrderMessage = outgoingMessages.reduce((prev, current) => (prev.chatOrder > current.chatOrder) ? prev : current);
-            temp_query += highestOutgoingChatOrderMessage.content
+        // let temp_query = '';
+        // if (callData.session.chatHistory.length > 0){
+        //     const outgoingMessages = callData.session.chatHistory.filter(message => message.direction === 'outgoing');
+        //     highestOutgoingChatOrderMessage = outgoingMessages.reduce((prev, current) => (prev.chatOrder > current.chatOrder) ? prev : current);
+        //     temp_query += highestOutgoingChatOrderMessage.content
 
-        }
-        temp_query += '; '+ callData.query;
+        // }
+        // temp_query += '; '+ callData.query;
 
 
         for (const typeSearchOption of typeSearchOptions) {
             console.log(typeSearchOption)
+            if (typeSearchOption ==='client-contract_chunks-index'){
+                console.log("ok")
+            }
             data_response = await VerifySearch(callData.query, Object.keys(callData.searchResponse), typeSearchOption, callData.session.contract_type);
             evaluation = await EvaluateSearch.run(JSON.stringify(data_response), callData.query, openaiClient, deployment);      
             console.log(evaluation)
@@ -290,20 +298,31 @@ export class SearchIndexes {
 
     static async run_individual(callData: SearchIndividualCallDataIndex, openaiClient: OpenAIClient, deployment: string): Promise<AnswerFromSearchCallDataIndex | NeedsMoreContextCallData> {
         
-        const typeSearchOptions = ["json-index", "summary-index", "table-index", "contracts-index"];
+        const typeSearchOptions= [`${callData.session.contract_type}_json-index`, 
+                                    `${callData.session.contract_type}_summary-index`, 
+                                    `${callData.session.contract_type}_table-index`, 
+                                    `${callData.session.contract_type}_chunk-index`];
         let evaluation = false;
         let data_response: Data | null = null;
         let type: string | null = null;
+        const dataResponsesArray: any[] = [];
 
         for (const typeSearchOption of typeSearchOptions) {
             data_response = await Search_individual(callData.query, callData.documents, typeSearchOption, callData.session.contract_type);
             evaluation = await EvaluateSearch.run(JSON.stringify(data_response), callData.query, openaiClient, deployment);      
             console.log(evaluation)      
             type = typeSearchOption;
-            if (evaluation){type = typeSearchOption;break;};
+            if (data_response != null) {
+                dataResponsesArray.push(...data_response);
+            }
+            
+            if (evaluation){type = typeSearchOption;break;}
+            else { type = typeSearchOption;}
         }
 
-
+        if (data_response === null || data_response.length === 0 || !evaluation) {
+            data_response = dataResponsesArray
+        }
         
         if (data_response === null || data_response.length === 0) {
             return  {
@@ -315,11 +334,6 @@ export class SearchIndexes {
             const normalizedDictionaries = normalizeScores(data_response, 'score');
             const outputArray: { [key: string]: string }[] = [];
             let prefix: string;
-            if (callData.session.contract_type ==='pharmacy-contracts'){
-                prefix = ''
-            }else{
-                prefix = callData.session.contract_type+'_'
-            }
             normalizedDictionaries.forEach((item) => {
                 const holder: string = type ===`${prefix}contracts-index` ? item.chunk: item.content
                 const parsedContent = holder.replace("{","").replace("}","")

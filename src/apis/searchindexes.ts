@@ -71,15 +71,6 @@ async function innerJoin(arr1: any[], arr2: any[], key1: string, key2: string) {
       map.get(key).push(item);
     });
   
-    // arr1.forEach(item => {
-    //   const key = item[key1].replace('contracts/contracts/', '');
-    //   if (map.has(key)) {
-    //     map.get(key).forEach((matchedItem: any) => {
-    //       result.push({ ...item, ...matchedItem });
-    //     });
-    //   }
-    // });
-
     const matchedKeys = new Set();
     arr1.forEach(item => {
       const key = item[key1].replace('contracts/contracts/', '');
@@ -160,38 +151,33 @@ export async function VerifySearch_meta(searchRequest: string, contract_type: st
 };
 
 export async function VerifySearch(searchRequest: string, file_array: string[], type_search: string, contract_type: string) {
-  let prefix: string;
-  if (contract_type ==='pharmacy-contracts'){
-    prefix = ''
-  }else{
-    prefix = contract_type+'_'
-  }
+  let prefix: string = contract_type+'_';
   const semantic_config: { [key: string]: string } = {
-    [`${prefix}summary-index`]: "summary-semantic-config",
-    [`${prefix}json-index`]: "base",
-    [`${prefix}contracts-index`]: "contracts-index-semantic-configuration",
-    [`${prefix}table-index`]: "table-semantic-config"
+    [`${prefix}summary-index`]: "basic",
+    [`${prefix}json-index`]: "basic",
+    [`${prefix}chunk-index`]: "basic",
+    [`${prefix}table-index`]: "basic"
   }
 
   const select_type: { [key: string]: string } = {
     [`${prefix}summary-index`]: 'fileName, content',
     [`${prefix}json-index`]: 'fileName, content',
-    [`${prefix}contracts-index`]: 'title, chunk',
+    [`${prefix}chunk-index`]: 'fileName, content',
     [`${prefix}table-index`] : 'fileName, content'
   }
 
 
   const filter_type: { [key: string]: string } = {
-    [`${prefix}summary-index`]: file_array.map(name => `fileName eq '${name.replace('.pdf', '')}'`).join(' or '),
-    [`${prefix}json-index`]: file_array.map(name => `fileName eq '${name.replace('.pdf', '')}'`).join(' or '),
-    [`${prefix}contracts-index`]: file_array.map(name => `title eq '${name}'`).join(' or '),
-    [`${prefix}table-index`] : file_array.map(name => `fileName eq '${name.replace('.pdf', '')}'`).join(' or ')
+    [`${prefix}summary-index`]: file_array.map(name => `fileName eq '${contract_type}/${name.replace('.pdf', '')}'`).join(' or '),
+    [`${prefix}json-index`]: file_array.map(name => `fileName eq '${contract_type}/${name.replace('.pdf', '')}'`).join(' or '),
+    [`${prefix}chunk-index`]: file_array.map(name => `fileName eq '${contract_type}/${name.replace('.pdf', '')}'`).join(' or '),
+    [`${prefix}table-index`] : file_array.map(name => `fileName eq '${contract_type}/${name.replace('.pdf', '')}'`).join(' or ')
   }
 
   const vectorQueries_fields: { [key: string]: string } = {
     [`${prefix}summary-index`]: "embedding",
     [`${prefix}json-index`]: "embedding",
-    [`${prefix}contracts-index`]: "text_vector",
+    [`${prefix}chunk-index`]: "embedding",
     [`${prefix}table-index`] : "embedding"
   }
 
@@ -260,38 +246,34 @@ export async function VerifySearch(searchRequest: string, file_array: string[], 
 };
   
 export async function Search_individual(searchRequest: string, document: string, type_search: string, contract_type: string) {
-  let prefix: string;
-  if (contract_type ==='pharmacy-contracts'){
-    prefix = ''
-  }else{
-    prefix = contract_type+'_'
-  }
+  let prefix: string = contract_type+'_';
+  
   const semantic_config: { [key: string]: string } = {
-    [`${prefix}summary-index`]: "summary-semantic-config",
-    [`${prefix}json-index`]: "base",
-    [`${prefix}contracts-index`]: "contracts-index-semantic-configuration",
-    [`${prefix}table-index`]: "table-semantic-config"
+    [`${prefix}summary-index`]: "basic",
+    [`${prefix}json-index`]: "basic",
+    [`${prefix}chunk-index`]: "basic",
+    [`${prefix}table-index`]: "basic"
   }
 
   const select_type: { [key: string]: string } = {
     [`${prefix}summary-index`]: 'fileName, content',
     [`${prefix}json-index`]: 'fileName, content',
-    [`${prefix}contracts-index`]: 'title, chunk',
+    [`${prefix}chunk-index`]: 'fileName, content',
     [`${prefix}table-index`] : 'fileName, content'
   }
 
 
   const filter_type: { [key: string]: string } = {
-    [`${prefix}summary-index`]: `fileName eq '${document.replace('.pdf', '')}'`,
-    [`${prefix}json-index`]: `fileName eq '${document.replace('.pdf', '')}'`,
-    [`${prefix}contracts-index`]: `title eq '${document}'`,
-    [`${prefix}table-index`] : `fileName eq '${document.replace('.pdf', '')}'`
+    [`${prefix}summary-index`]: `fileName eq '${contract_type}/${document.replace('.pdf', '')}'`,
+    [`${prefix}json-index`]: `fileName eq '${contract_type}/${document.replace('.pdf', '')}'`,
+    [`${prefix}chunk-index`]: `fileName eq '${contract_type}/${document.replace('.pdf', '')}'`,
+    [`${prefix}table-index`] : `fileName eq '${contract_type}/${document.replace('.pdf', '')}'`
   }
 
   const vectorQueries_fields: { [key: string]: string } = {
     [`${prefix}summary-index`]: "embedding",
     [`${prefix}json-index`]: "embedding",
-    [`${prefix}contracts-index`]: "text_vector",
+    [`${prefix}chunk-index`]: "embedding",
     [`${prefix}table-index`] : "embedding"
   }
 
@@ -304,13 +286,20 @@ export async function Search_individual(searchRequest: string, document: string,
     search: searchRequest,
     select: select_type[type_search],
     filter: filter_type[type_search], 
+    count: true,
+    vectorQueries: [
+      {
+        kind: "text",
+        text: searchRequest,
+        fields: vectorQueries_fields[type_search]
+      }
+    ],    
     queryType: 'semantic',
     semanticConfiguration: semantic_config[type_search],
     captions: 'extractive',
     answers: 'extractive|count-3',
     queryLanguage: 'en-US'
   });
-
   const settings = {  
       method: "POST",  
       headers: {  

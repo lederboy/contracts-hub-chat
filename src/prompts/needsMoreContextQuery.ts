@@ -10,6 +10,8 @@ export const NeedsMoreContextQuery: ChatRequestSystemMessage = {
         - chain code: chain code or NCPDP code
         - company: company of interest
         You must explain to the user in a sicinct manner why the query is lacking context.
+        Also include that it is possible that the informatin is not avialble in the contract so this must be included.
+        
 
     `
 }
