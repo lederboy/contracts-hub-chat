@@ -27,6 +27,7 @@ export async function ChatAIS(request: HttpRequest, context: InvocationContext):
     const chatSesh = ChatSessionSchemaAIS.parse(await request.json());
     let sessionId = chatSesh.sessionId;
     let user = chatSesh.user;
+    let contract_type = chatSesh.contract_type==undefined? 'pharmacy': chatSesh.contract_type;
     
     const sessionManager = new SessionManager(
         new ContainerClient(
@@ -64,7 +65,7 @@ export async function ChatAIS(request: HttpRequest, context: InvocationContext):
         sessionId = uuidv4()
         context.log({sessionId: sessionId, status: 'createNewSession'})
     }
-    const session = await sessionManager.loadSession(user, sessionId)
+    const session = await sessionManager.loadSession(user, sessionId, contract_type)
     // const normalizedStr = normalize(chatSesh.query);
     // const containsAnySubstring = substrings.some(substring => normalizedStr.includes(normalize(substring)));
     // const containsAnySubstring = history_check? 'MODIFY_QUERY_WITH_HISTORY' : 'SEARCH_WITH_METADATA'
@@ -75,37 +76,58 @@ export async function ChatAIS(request: HttpRequest, context: InvocationContext):
         query: chatSesh.query, 
         state: title_def? 'DEFINE_QUERY_TITLE' : 'SEARCH_WITH_METADATA'
     }
-    while(callData.state !== "COMPLETE"){
-        try{
-            callData = await chatWorkflow.run(callData, sessionManager)
-            context.log(JSON.stringify(callData))
-        }catch(err){
-            context.error(callData)
-            context.error(err)
-            return {
-                headers: {
-                    'Content-Type': 'application/json'
-                },
-                body: JSON.stringify(callData)
+    
+    try {
+        
+        while(callData.state !== "COMPLETE"){
+            try{
+                callData = await chatWorkflow.run(callData)
+                context.log(JSON.stringify(callData))
+            }catch(err){
+                context.error(callData)
+                context.error(err)
+                return {
+                    headers: {
+                        'Content-Type': 'application/json'
+                    },
+                    body: JSON.stringify(callData)
+                }
             }
         }
+        await sessionManager.saveSession(user, callData.session, contract_type)
+        return {
+            headers: {
+                'Content-Type': 'application/json'
+            },
+            body: JSON.stringify(
+                {
+                    title: callData.session.title,
+                    llmResponse: callData.llmResponse,
+                    documents: callData.session.chatHistory[callData.session.chatHistory.length - 1].documents,
+                    sessionId: sessionId,
+                    score: callData.score,
+                    explanation: callData.explanation
+                }
+            )
+        }
+      } catch (error) {
+        return {
+            headers: {
+                'Content-Type': 'application/json'
+            },
+            body: JSON.stringify(
+                {
+                    title: callData.session.title,
+                    llmResponse: '',
+                    documents: [],
+                    sessionId: sessionId,
+                    score: '',
+                    explanation: ''
+                }
+            )
+        }
     }
-    await sessionManager.saveSession(user, callData.session)
-    return {
-        headers: {
-            'Content-Type': 'application/json'
-        },
-        body: JSON.stringify(
-            {
-                title: callData.session.title,
-                llmResponse: callData.llmResponse,
-                documents: callData.session.chatHistory[callData.session.chatHistory.length - 1].documents,
-                sessionId: sessionId,
-                score: callData.score,
-                explanation: callData.explanation
-            }
-        )
-    }
+    
 
 };
 

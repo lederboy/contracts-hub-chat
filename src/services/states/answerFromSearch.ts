@@ -107,17 +107,17 @@ export class AnswerQueryFromSearch {
     static async run(callData: AnswerFromSearchCallData, openaiClient: OpenAIClient, deployment: string, overrideDeployment: boolean = false): Promise<EvaluateCallData> {
         
         let highestOutgoingChatOrderMessage;
-        let temp_query = '';
-        if (callData.session.chatHistory.length > 0){
-            const outgoingMessages = callData.session.chatHistory.filter(message => message.direction === 'outgoing');
-            highestOutgoingChatOrderMessage = outgoingMessages.reduce((prev, current) => (prev.chatOrder > current.chatOrder) ? prev : current);
-            temp_query += highestOutgoingChatOrderMessage.content
+        // let temp_query = '';
+        // if (callData.session.chatHistory.length > 0){
+        //     const outgoingMessages = callData.session.chatHistory.filter(message => message.direction === 'outgoing');
+        //     highestOutgoingChatOrderMessage = outgoingMessages.reduce((prev, current) => (prev.chatOrder > current.chatOrder) ? prev : current);
+        //     temp_query += highestOutgoingChatOrderMessage.content
 
-        }
-        temp_query += ';'+ callData.query;
+        // }
+        // temp_query += ';'+ callData.query;
         
         
-        const response_ = this.formatUserPrompt(callData.searchResponse, temp_query, callData.session.chatHistory)
+        const response_ = this.formatUserPrompt(callData.searchResponse, callData.query, callData.session.chatHistory)
         
         
         const tokenLimit = 4096;

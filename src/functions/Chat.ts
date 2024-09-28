@@ -37,13 +37,14 @@ export async function Chat(request: HttpRequest, context: InvocationContext): Pr
 
     const chatSesh = ChatSessionSchema.parse(await request.json())
     let sessionId = chatSesh.sessionId
+    let contract_type = chatSesh.contract_type==undefined? 'pharmacy-contracts': chatSesh.contract_type;
     if(sessionId){
         context.log({sessionId: sessionId, status: 'usingExistingSession'})
     }else{
         sessionId = uuidv4()
         context.log({sessionId: sessionId, status: 'createNewSession'})
     }
-    const session = await sessionManager.loadSession('Admin',sessionId)
+    const session = await sessionManager.loadSession('Admin',sessionId, contract_type)
     let callData: CallData = {
         session: session, 
         query: chatSesh.query, 
@@ -68,7 +69,7 @@ export async function Chat(request: HttpRequest, context: InvocationContext): Pr
             }
         }
     }
-    await sessionManager.saveSession('Admin', callData.session)
+    await sessionManager.saveSession('Admin', callData.session, contract_type)
     return {
         headers: {
             'Content-Type': 'application/json'
