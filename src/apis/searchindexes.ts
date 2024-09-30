@@ -221,26 +221,31 @@ export async function VerifySearch(searchRequest: string, file_array: string[], 
   const data_searchResults: any = await searchResults.json();
 
   const flattenedSummary_ = await Promise.all(
-    data_searchResults.value.map((summ: any) => flattenCaptions(summ, '_summary'))
+    data_searchResults.value.map((summ: any) => flattenCaptions(summ, ''))
   );   
   
   if (data_searchResults.value.length === 0) {
     const joinedData = await removeSearchStrings(flattenedSummary_);
-    outputArray = await replaceScoreChunksKey(joinedData, '_summary');
-    uniqueArray = await getUniqueValues(outputArray, ["fileName_chunks", "content_chunks"]);
+    outputArray = await replaceScoreChunksKey(joinedData, '');
+    uniqueArray = await getUniqueValues(outputArray, ["fileName", "content"]);
   } else {
 
     const flattenedSummary = removeFields(flattenedSummary_, [
-      "@search.captions.highlights_summary",
-      "@search.captions.text_summary"
+      "@search.captions.highlights",
+      "@search.captions.text"
     ]);
     const joinedData = await removeSearchStrings(flattenedSummary);
-    outputArray = await replaceScoreChunksKey(joinedData, '_table');
-    uniqueArray = outputArray
+    // outputArray = await replaceScoreChunksKey(joinedData, '_table');
+
+    const sortedItems = joinedData.sort((a: { rerankerScore: number; }, b: { rerankerScore: number; }) => b.rerankerScore - a.rerankerScore);
+    const top10_selected_val = sortedItems.slice(0, 10);
+
+    uniqueArray = top10_selected_val
   }
+  
   const summaries = uniqueArray.map((item: any) => ({
-      content_summary: item.content_summary,
-      fileName_summary: item.fileName_summary
+      content: item.content,
+      fileName: item.fileName
   }));
   return summaries;
 };

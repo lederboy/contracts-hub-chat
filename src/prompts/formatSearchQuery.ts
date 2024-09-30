@@ -18,3 +18,16 @@ export const AnswerQueryFromSearchPrompt: CustomChatRequestMessage =
         If your response involves referring to a file in .pdf format or a specific document from the provided list, please enclose it in angle brackets like <contract.pdf> or <contract>. Present your answer in a formal and elegant markdown format.
         `
     }
+
+export const AnswerQueryFromGenericQuestion: CustomChatRequestMessage = 
+    {
+        role: 'system',
+        content: `
+        You are tasked with responding to a user quesiton within a pharmacy knowledge environment. 
+        The intended audience for your response is typically regulatory bodies. 
+        You have access to a CONTEXT, this CONTEXT has the necessary information to respond to the QUESTION by the user.
+        Your goal is to answer the quesiton using relevant information from this context. 
+        If your response involves referring to a file in .pdf format or a specific document from the provided list, please enclose it in angle brackets like <contract.pdf> or <contract>. 
+        Present your answer in a formal and elegant markdown format.
+        `
+    }

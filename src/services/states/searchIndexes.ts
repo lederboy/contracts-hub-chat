@@ -4,6 +4,7 @@ import {EvaluateSearch} from '../evaluatesearch';
 import { SessionManager } from "../session";
 import { VerifySearch, VerifySearch_meta, Search_individual } from "../../apis/searchindexes";
 import { SearchIndexesCallData, 
+        GenericSearchCallDataIndex,
         SearchMetaDataCallData, 
         AnswerFromSearchCallDataIndex, 
         NeedsMoreContextCallData,
@@ -62,10 +63,7 @@ type OutputData = {
     content_summary: string;
   };
 
-function generateDictionary(
-        resultDictionary: Dictionary[], 
-        fileNameKey: keyof Dictionary,
-        initialResult: { [key: string]: string } = {}): { resultDictionary: { [key: string]: string }, document_list: string[] } {
+function generateDictionary(resultDictionary: Dictionary[], fileNameKey: keyof Dictionary, initialResult: { [key: string]: string } = {}): { resultDictionary: { [key: string]: string }, document_list: string[] } {
     let result: { [key: string]: string } = { ...initialResult };
     const document_list: string[] = [];
     if (Object.keys(initialResult).length === 0){
@@ -124,14 +122,6 @@ export class SearchMetadata {
         let resultDictionary:any = {};
         let document_list: any = [];
         if (callData.session.grounding_data.length === 0 && callData.session.contract_type === 'pharmacy'){
-            // if (callData.session.chatHistory.length > 0){
-            //     const outgoingMessages = callData.session.chatHistory.filter(message => message.direction === 'outgoing');
-            //     highestOutgoingChatOrderMessage = outgoingMessages.reduce((prev, current) => (prev.chatOrder > current.chatOrder) ? prev : current);
-            //     temp_query += highestOutgoingChatOrderMessage.content
-
-            // }
-            // temp_query += '; '+ callData.query;
-            // callData.query = temp_query;
             const data_response: Data = await VerifySearch_meta(callData.query, callData.session.contract_type);
             const normalizedDictionaries = normalizeScores(data_response, 'score');
             // const filteredData = filterByKey(normalizedDictionaries, 0.3, 'score');
@@ -221,57 +211,51 @@ function getUniqueDictionaries(dictionaries: Dictionary[]): Dictionary[] {
     return uniqueDictionaries;
   }
   
-
-export class SearchIndexes {
-    static async run(callData: SearchIndexesCallData, openaiClient: OpenAIClient, deployment: string): Promise<AnswerFromSearchCallDataIndex | NeedsMoreContextCallData> {
+  export class GetIndexInfo{
+    static async execute(callData: SearchIndexesCallData | GenericSearchCallDataIndex, openaiClient: OpenAIClient, deployment: string){
         let typeSearchOptions: string[];
-        // if (callData.session.contract_type === 'pharmacy-contracts'){
-        //     typeSearchOptions= ["json-index", "summary-index", "table-index", "contracts-index"];
-        // }else{
-        //     typeSearchOptions= [`${callData.session.contract_type}_json-index`];
-        // }
-        typeSearchOptions= [`${callData.session.contract_type}_json-index`, 
-                                `${callData.session.contract_type}_summary-index`, 
-                                `${callData.session.contract_type}_table-index`, 
-                                `${callData.session.contract_type}_chunk-index`];
+        typeSearchOptions= [`${callData.session.contract_type}_table-index`, 
+                            `${callData.session.contract_type}_chunk-index`,
+                            `${callData.session.contract_type}_json-index`, 
+                            `${callData.session.contract_type}_summary-index`];
         let evaluation = false;
         let data_response: Data | null = null;
         let type: string | null = null;
         const dataResponsesArray: any[] = [];
-        
-        let highestOutgoingChatOrderMessage;
-        // let temp_query = '';
-        // if (callData.session.chatHistory.length > 0){
-        //     const outgoingMessages = callData.session.chatHistory.filter(message => message.direction === 'outgoing');
-        //     highestOutgoingChatOrderMessage = outgoingMessages.reduce((prev, current) => (prev.chatOrder > current.chatOrder) ? prev : current);
-        //     temp_query += highestOutgoingChatOrderMessage.content
-
-        // }
-        // temp_query += '; '+ callData.query;
-
-
         for (const typeSearchOption of typeSearchOptions) {
-            console.log(typeSearchOption)
-            if (typeSearchOption ==='client-contract_chunks-index'){
-                console.log("ok")
-            }
             data_response = await VerifySearch(callData.query, Object.keys(callData.searchResponse), typeSearchOption, callData.session.contract_type);
-            evaluation = await EvaluateSearch.run(JSON.stringify(data_response), callData.query, openaiClient, deployment);      
-            console.log(evaluation)
+            
+            if (typeSearchOption.indexOf('chunk-index') !== -1 || typeSearchOption.indexOf('json-index') !== -1 || typeSearchOption.indexOf('summary-index') !== -1 ){
+                evaluation = await EvaluateSearch.run(JSON.stringify(data_response), callData.query, openaiClient, deployment);
+                console.log(typeSearchOption)
+                console.log(evaluation)
+            }
             if (data_response != null) {
                 dataResponsesArray.push(...data_response);
             }
-            
-            if (evaluation){type = typeSearchOption;break;}
-            else { type = typeSearchOption;}
+            if (evaluation && data_response != null){
+                type = typeSearchOption;
+                break;
+            }
+            else { 
+                type = typeSearchOption;
+            }
         }
+        // if (data_response === null || data_response.length === 0 || !evaluation) {
+        //     data_response = dataResponsesArray
+        // }  
+        return dataResponsesArray
+    }
 
-        if (data_response === null || data_response.length === 0 || !evaluation) {
-            data_response = dataResponsesArray
-        }
-        
-        
-        
+    
+
+  }
+
+
+
+export class SearchIndexes {
+    static async run(callData: SearchIndexesCallData, openaiClient: OpenAIClient, deployment: string): Promise<AnswerFromSearchCallDataIndex | NeedsMoreContextCallData> {
+        const data_response = await GetIndexInfo.execute(callData, openaiClient, deployment)
         if (data_response === null || data_response.length === 0) {
             return  {
                 state: 'NEEDS_MORE_CONTEXT',
@@ -282,7 +266,7 @@ export class SearchIndexes {
             const normalizedDictionaries = normalizeScores(data_response, 'score');
             // const uniqueDictionaries = getUniqueDictionaries(normalizedDictionaries);
             // const filteredData = filterByKey(normalizedDictionaries, 0.5, 'score');
-            const { resultDictionary: resultDictionary, document_list: document_list } = generateDictionary(normalizedDictionaries, 'fileName_summary', callData.searchResponse);
+            const { resultDictionary: resultDictionary, document_list: document_list } = generateDictionary(normalizedDictionaries, 'fileName', callData.searchResponse);
             return {
                 state: "ANSWER_FROM_SEARCH",
                 searchResponse: resultDictionary,

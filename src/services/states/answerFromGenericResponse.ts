@@ -1,8 +1,9 @@
 import { ChatHistory } from './../session';
 import { OpenAIClient, ChatRequestMessage, ChatRequestSystemMessage  } from "@azure/openai";
-import { AnswerQueryFromSearchPrompt,CustomChatRequestMessage } from "../../prompts/formatSearchQuery";
-import { AnswerFromSearchCallData, AnswerFromSearchCallDataIndex, EvaluateCallData } from "./states";
+import { AnswerQueryFromGenericQuestion, CustomChatRequestMessage } from "../../prompts/formatSearchQuery";
+import { AnswerFromSearchCallData, AnswerFromSearchCallDataIndex, EvaluateCallData, GenericSearchCallDataIndex } from "./states";
 import { encode } from 'gpt-3-encoder';
+import {GetIndexInfo} from './searchIndexes'
 
 function isTokenCountExceedingLimit(text: string, limit: number = 4096): boolean {
     const tokens = encode(text);
@@ -57,23 +58,23 @@ function convertEntries(entries: OriginalEntry[]): CustomChatRequestMessage [] {
     }));
 }
 
-export class AnswerQueryFromSearch {
-    static formatUserPrompt(mapping: any, query: string, ChatHistory: Message[]): string {
-        let highestChatOrderMessage;
-        let highestOutgoingChatOrderMessage;
-        if (ChatHistory.length > 0){
-            const incomingMessages = ChatHistory.filter(message => message.direction === 'incoming');
-            highestChatOrderMessage = incomingMessages.reduce((prev, current) => (prev.chatOrder > current.chatOrder) ? prev : current);
+export class AnswerQueryFromGenericResponse {
+    static formatUserPrompt(mapping: any, query: string,): string {
+        // let highestChatOrderMessage;
+        // let highestOutgoingChatOrderMessage;
+        // if (ChatHistory.length > 0){
+        //     const incomingMessages = ChatHistory.filter(message => message.direction === 'incoming');
+        //     highestChatOrderMessage = incomingMessages.reduce((prev, current) => (prev.chatOrder > current.chatOrder) ? prev : current);
             
-            const outgoingMessages = ChatHistory.filter(message => message.direction === 'outgoing');
-            highestOutgoingChatOrderMessage = outgoingMessages.reduce((prev, current) => (prev.chatOrder > current.chatOrder) ? prev : current);
-            // temp_query += highestOutgoingChatOrderMessage.content
-        }
-        // temp_query += ' ' + query
-        const historicalContextString = ChatHistory.length > 0 ? `
-                Historical Context:
-                    ${JSON.stringify(highestChatOrderMessage)}
-        ` : '';
+        //     const outgoingMessages = ChatHistory.filter(message => message.direction === 'outgoing');
+        //     highestOutgoingChatOrderMessage = outgoingMessages.reduce((prev, current) => (prev.chatOrder > current.chatOrder) ? prev : current);
+        //     // temp_query += highestOutgoingChatOrderMessage.content
+        // }
+        // // temp_query += ' ' + query
+        // const historicalContextString = ChatHistory.length > 0 ? `
+        //         Historical Context:
+        //             ${JSON.stringify(highestChatOrderMessage)}
+        // ` : '';
         
         // let mappingStrings;
         let mappingStrings: string[] = [];
@@ -93,25 +94,30 @@ export class AnswerQueryFromSearch {
         }
         
 
-        return `        
-        Based on the provided mappings and if the historical context exist, please respond the query asked by the user.
-        ${historicalContextString}
-        Mappings:
+        return `       
+        You are going to respond to the QUESTION: using the information provided in the CONTEXT. 
+        Please look into this CONTEXT to understand and have a reference to respond to the QUESTION asked by the user.
+        CONTEXT:
             ${mappingStrings.join('\n')}
-        Query:
+        QUESTION:
             ${query}
-        If your response involves referring to a file in .pdf format or a specific document from the provided list, please enclose it in angle brackets like <contract.pdf> or <contract>
+        
         
         `
     }
-    static async run(callData: AnswerFromSearchCallData, openaiClient: OpenAIClient, deployment: string, overrideDeployment: boolean = false): Promise<EvaluateCallData> {       
-        const response_ = this.formatUserPrompt(callData.searchResponse, callData.query, callData.session.chatHistory)
+    static async run(callData: GenericSearchCallDataIndex, openaiClient: OpenAIClient, deployment: string, overrideDeployment: boolean = false): Promise<EvaluateCallData> {
+        
+        
+        const context = await GetIndexInfo.execute(callData, openaiClient, deployment);
+        context.forEach(item => {
+            item.fileName += '.pdf';
+          });
+        const response_ = this.formatUserPrompt(context, callData.query)
         const tokenLimit = 4096;
         const isExceeding = isTokenCountExceedingLimit(response_, tokenLimit);
         let chat_history = callData.session.chatHistory.slice(Math.max(callData.session.chatHistory.length - 2, 0))
         const convertedArray = convertEntries(chat_history);
-        let prompt_chat: CustomChatRequestMessage[] = [AnswerQueryFromSearchPrompt, ...convertedArray];
-        
+        let prompt_chat: CustomChatRequestMessage[] = [AnswerQueryFromGenericQuestion, ...convertedArray];
         if (overrideDeployment && isExceeding) {
             deployment = 'gpt-4o';
         }else{
@@ -121,7 +127,7 @@ export class AnswerQueryFromSearch {
         const completion = await openaiClient.getChatCompletions(
             deployment,
             prompt_chat.concat([{role: 'user', content: response_}]),
-            {temperature: 0.0}
+            {temperature: 0.1}
         )
 
         if(completion.choices.length > 0){
@@ -135,10 +141,6 @@ export class AnswerQueryFromSearch {
                 const pdfPattern = /<pharmacy\/([^\/]+\.pdf)>/g;
                 let filenames: string[] = [];
                 let match;
-
-                // while ((match = regex.exec(message.content)) !== null) {
-                //     filenames.push(match[2]);
-                // }
                 while ((match = pdfPattern.exec(message.content)) !== null) {
                     filenames.push(match[1]);
                 }
@@ -147,7 +149,7 @@ export class AnswerQueryFromSearch {
                 }
                 const cleanedFilenames: string[] = filenames.map(filename => filename.replace("**", ""));
                 const uniqueFilenames = Array.from(new Set(cleanedFilenames));
-                
+                // const updatedDocumentsSet: Set<string> = new Set([...callData.documents, ...uniqueFilenames]);
                 let prefixedFilenames = uniqueFilenames.map(filename => `pharmacy/${filename}`);
 
                 callData.documents = Array.from(prefixedFilenames);
