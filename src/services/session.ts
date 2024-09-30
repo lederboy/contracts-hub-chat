@@ -49,15 +49,7 @@ export class SessionManager {
         this.containerClient = containerClient
     }
     async loadSession(user: string, sessionId: string, contract_type: string, documentNames?: string[]): Promise<ChatHistory_AI>{
-        let file_name: string;
-        // if (contract_type === 'pharmacy-contracts'){
-        //     file_name = `${this.sessionPrefix}/${user}.json`;
-        //     // contract_type = 'pharmacy-contracts'
-
-        // }else{
-        //     file_name = `${this.sessionPrefix}/${contract_type}_${user}.json`;
-        // }
-        file_name = `${this.sessionPrefix}/${contract_type}_${user}.json`;
+        let file_name: string = `${this.sessionPrefix}/${contract_type}_${user}.json`;
         const blobClient = this.containerClient.getBlobClient(file_name)
 
         if(await blobClient.exists()){
@@ -108,8 +100,9 @@ export class SessionManager {
 
         
     }
-    async deleteSession(user: string, sessionId: string){
-        const blobClient = this.containerClient.getBlockBlobClient(`${this.sessionPrefix}/${user}.json`)
+    async deleteSession(user: string, sessionId: string, contract_type: string){
+        let file_name: string = `${this.sessionPrefix}/${contract_type}_${user}.json`;
+        const blobClient = this.containerClient.getBlockBlobClient(file_name)
         if(await blobClient.exists()){
             const sessionStr = (await blobClient.downloadToBuffer()).toString()
             let json_session = JSON.parse(sessionStr)

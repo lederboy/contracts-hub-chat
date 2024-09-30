@@ -19,7 +19,8 @@ export async function DeleteChatHistory(request: HttpRequest, context: Invocatio
     const chatSesh = ChatHistorySession.parse(await request.json());
     let sessionId = chatSesh.sessionId;
     let user = chatSesh.user;
-    const isdeleted = await sessionManager.deleteSession(user, sessionId)
+    let contract_type = chatSesh.contract_type==undefined? 'pharmacy': chatSesh.contract_type;
+    const isdeleted = await sessionManager.deleteSession(user, sessionId, contract_type)
 
     
     // await sessionManager.saveSession(user, callData.session)

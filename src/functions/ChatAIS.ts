@@ -7,22 +7,6 @@ import { CallData } from "../services/states/states";
 import { initWorkflowAIS } from "../utils/init";
 
 
-// const substrings = [
-//     "Contract File Name",
-//     "Line of Business",
-//     "Agreement Effective Date",
-//     "Agreement End Date",
-//     "Vaccine List Available",
-//     "Chain Code",
-//     "Active Status",
-//     "Active",
-//     "Company"
-// ];
-
-const normalize = (input: string): string => {
-    return input.toLowerCase().replace(/[-\s]+/g, "");
-};
-
 export async function ChatAIS(request: HttpRequest, context: InvocationContext): Promise<HttpResponseInit> {
     const chatSesh = ChatSessionSchemaAIS.parse(await request.json());
     let sessionId = chatSesh.sessionId;
@@ -66,11 +50,6 @@ export async function ChatAIS(request: HttpRequest, context: InvocationContext):
         context.log({sessionId: sessionId, status: 'createNewSession'})
     }
     const session = await sessionManager.loadSession(user, sessionId, contract_type)
-    // const normalizedStr = normalize(chatSesh.query);
-    // const containsAnySubstring = substrings.some(substring => normalizedStr.includes(normalize(substring)));
-    // const containsAnySubstring = history_check? 'MODIFY_QUERY_WITH_HISTORY' : 'SEARCH_WITH_METADATA'
-
-
     let callData: CallData = {
         session: session, 
         query: chatSesh.query, 

@@ -1,5 +1,5 @@
 import { OpenAIClient } from "@azure/openai";
-import { DefineResponseCallData,   SearchMetaDataCallData, AnswerFromSearchCallDataIndex} from "./states";
+import { DefineResponseCallData,   SearchMetaDataCallData, GenericSearchCallDataIndex} from "./states";
 import { DefineResponseForQuery } from "../../prompts/defineresponse";
 import { ChatHistory_AI } from "../session";
 
@@ -23,7 +23,7 @@ export class DefineResponse {
             
         `
     }
-    static async run(callData: DefineResponseCallData, openaiClient: OpenAIClient, deployment: string): Promise<SearchMetaDataCallData | AnswerFromSearchCallDataIndex> {
+    static async run(callData: DefineResponseCallData, openaiClient: OpenAIClient, deployment: string): Promise<SearchMetaDataCallData | GenericSearchCallDataIndex> {
         const completion = await openaiClient.getChatCompletions(
             'gpt-35-turbo',
             [DefineResponseForQuery, {role: 'user', content: this.formatUser(callData.query)}],
@@ -44,7 +44,7 @@ export class DefineResponse {
 
                     }else {
                         return {
-                            state: "ANSWER_FROM_SEARCH",
+                            state: "GENERIC_RESPONSE",
                             searchResponse: '',
                             session: callData.session,
                             documents: [],

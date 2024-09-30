@@ -57,8 +57,13 @@ export interface AnswerFromSearchCallDataIndex extends BaseCallData {
     override: boolean
 }
 
-
-
+export interface GenericSearchCallDataIndex extends BaseCallData {
+    state: "GENERIC_RESPONSE"
+    query: string
+    documents: string[]
+    searchResponse: any,
+    override: boolean
+}
 
 
 export interface ModifyQueryCallData extends BaseCallData {
@@ -137,4 +142,5 @@ export type CallData =
                        ModifyQueryCallData            |
                        FinalizeCallData               |
                        NeedsMoreContextCallData       |
+                       GenericSearchCallDataIndex     |
                        CompleteCallData

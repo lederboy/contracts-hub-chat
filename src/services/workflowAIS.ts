@@ -9,6 +9,7 @@ import { ApiCredentials, Deployments } from "../utils/types";
 import { ParseSearchQuery } from "./states/parseQuery";
 import { Search } from "./states/search";
 import { AnswerQueryFromSearch } from "./states/answerFromSearch";
+import { AnswerQueryFromGenericResponse } from "./states/answerFromGenericResponse";
 import { EvaluateLLMResponse } from "./states/evaluateResponse";
 import { GetDocuments } from "./states/getDocuments";
 import { NeedsMoreContext } from "./states/needsMoreContext";
@@ -64,6 +65,9 @@ export class ChatWorkflowAIS {
                 searchEndpoint: this.contractsHubCredentials.searchEndpoint, 
                 contentEndpoint: this.contractsHubCredentials.contentEndpoint
             })
+        }
+        else if(callData.state === "GENERIC_RESPONSE"){
+            return await AnswerQueryFromGenericResponse.run(callData, this.openaiClient, this.openaiDeployments.completions, true)
         }
         else if(callData.state === "ANSWER_FROM_SEARCH"){
             return await AnswerQueryFromSearch.run(callData, this.openaiClient, this.openaiDeployments.completions, true)
