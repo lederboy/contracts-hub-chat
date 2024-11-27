@@ -90,6 +90,7 @@ export interface SearchIndividualCallDataIndex extends BaseCallData {
 
 export interface SearchIndexesCallData extends BaseCallData {
     state: 'SEARCH_WITH_INDEXES'
+    documents: string[]
     query: string,
     searchResponse: {[key: string]: string;}
 }

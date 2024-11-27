@@ -11,7 +11,7 @@ export async function ChatAIS(request: HttpRequest, context: InvocationContext):
     const chatSesh = ChatSessionSchemaAIS.parse(await request.json());
     let sessionId = chatSesh.sessionId;
     let user = chatSesh.user;
-    let contract_type = chatSesh.contract_type==undefined? 'pharmacy': chatSesh.contract_type;
+    let contractType = chatSesh.contractType==undefined? 'pharmacy': chatSesh.contractType;
     
     const sessionManager = new SessionManager(
         new ContainerClient(
@@ -49,7 +49,7 @@ export async function ChatAIS(request: HttpRequest, context: InvocationContext):
         sessionId = uuidv4()
         context.log({sessionId: sessionId, status: 'createNewSession'})
     }
-    const session = await sessionManager.loadSession(user, sessionId, contract_type)
+    const session = await sessionManager.loadSession(user, sessionId, contractType)
     let callData: CallData = {
         session: session, 
         query: chatSesh.query, 
@@ -73,7 +73,7 @@ export async function ChatAIS(request: HttpRequest, context: InvocationContext):
                 }
             }
         }
-        await sessionManager.saveSession(user, callData.session, contract_type)
+        await sessionManager.saveSession(user, callData.session, contractType)
         return {
             headers: {
                 'Content-Type': 'application/json'

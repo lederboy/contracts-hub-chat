@@ -14,6 +14,7 @@ import { SearchIndexesCallData,
 import {HistoricalQuieries} from "../session"
 // type TypeSearchOptions = "json-index" | "contracts-index" | "summary-index" | "table-index";
 type DataItem = {
+    captions: any;
     score: number;
     chunk: string;
     content: string;
@@ -63,10 +64,10 @@ type OutputData = {
     content_summary: string;
   };
 
-function generateDictionary(resultDictionary: Dictionary[], fileNameKey: keyof Dictionary, initialResult: { [key: string]: string } = {}): { resultDictionary: { [key: string]: string }, document_list: string[] } {
+function generateDictionary(resultDictionary: Dictionary[], fileNameKey: keyof Dictionary, initialResult: any = {}): { resultDictionary: { [key: string]: string }, document_list: string[] } {
     let result: { [key: string]: string } = { ...initialResult };
     const document_list: string[] = [];
-    if (Object.keys(initialResult).length === 0){
+    if (initialResult.length === 0){
         resultDictionary.forEach(dict => {
             let dict1: { [key: string]: string } = {};
             const key = dict[fileNameKey] + '.pdf';
@@ -81,7 +82,7 @@ function generateDictionary(resultDictionary: Dictionary[], fileNameKey: keyof D
             document_list.push(key);
         });
     } else{
-        const sanitizedResultKeys = Object.keys(result).map(k => k.replace(/\s/g, ''))
+        const sanitizedResultKeys = Object.values(result).map(k => k.replace(/\s/g, ''))
     
         resultDictionary.forEach(dict => {
             let dict1: { [key: string]: string } = {};
@@ -121,32 +122,25 @@ export class SearchMetadata {
         // let temp_query = '';
         let resultDictionary:any = {};
         let document_list: any = [];
-        if (callData.session.grounding_data.length === 0 && callData.session.contract_type === 'pharmacy'){
-            const data_response: Data = await VerifySearch_meta(callData.query, callData.session.contract_type);
+        if (callData.session.grounding_data.length === 0 && callData.session.contractType === 'pharmacy'){
+            const data_response: Data = await VerifySearch_meta(callData.query, callData.session.contractType);
             const normalizedDictionaries = normalizeScores(data_response, 'score');
+            const sortedItems = normalizedDictionaries.sort((a: { score: number; }, b: { score: number; }) => b.score - a.score);
+            const top10_selected_val = sortedItems;//.slice(0, 10);
             // const filteredData = filterByKey(normalizedDictionaries, 0.3, 'score');
-            const { resultDictionary: tempResultDictionary, document_list: tempDocumentList } = generateDictionary(normalizedDictionaries, 'ContractFileName', {});
-            
+            const modifiedData = top10_selected_val.map(({ score, rerankerScore, captions, ...rest }) => rest);
+            const { resultDictionary: tempResultDictionary, document_list: tempDocumentList } = generateDictionary(modifiedData, 'ContractFileName', []);
             resultDictionary = tempResultDictionary;
-            document_list = tempDocumentList;
-            // let highestChatOrderMessage: HistoricalQuieries;
-            // if (callData.session.chatHistory.length > 0){
-            //     const incomingMessages = callData.session.chatHistory.filter(message => message.direction === 'incoming');
-            //     highestChatOrderMessage = incomingMessages.reduce((prev, current) => (prev.chatOrder > current.chatOrder) ? prev : current); 
-            //     if (highestChatOrderMessage.documents!= null && highestChatOrderMessage.documents.length > 0){
-            //         document_holder.push(...highestChatOrderMessage.documents)
-            //     }
-            // }
-            // document_holder.push(...document_list)
-            
-            
-            
-            evaluation = await EvaluateSearch.run(JSON.stringify(resultDictionary), callData.query, openaiClient, deployment);  
-            callData.session.grounding_data.push({key: "metadata", content: resultDictionary})
-            callData.session.grounding_data.push({key: "document_list", content: document_list})
+            document_list = tempDocumentList;         
+            evaluation = await EvaluateSearch.run(JSON.stringify(resultDictionary), callData.query, openaiClient, deployment);
         }else{
-            resultDictionary = callData.session.grounding_data.filter(dict => dict.key === 'metadata').map(dict => dict.content)[0];
-            document_list = callData.session.grounding_data.filter(dict => dict.key === 'document_lista').map(dict => dict.content)[0];
+            if (callData.session.contractType === 'pharmacy'){
+                resultDictionary = callData.session.grounding_data.filter(dict => dict.key === 'metadata').map(dict => dict.content)[0];
+                document_list = callData.session.grounding_data.filter(dict => dict.key === 'document_list').map(dict => dict.content)[0];
+            }else{
+                resultDictionary = undefined;
+            }
+            
             
         }
         if (resultDictionary === undefined){
@@ -214,24 +208,38 @@ function getUniqueDictionaries(dictionaries: Dictionary[]): Dictionary[] {
   export class GetIndexInfo{
     static async execute(callData: SearchIndexesCallData | GenericSearchCallDataIndex, openaiClient: OpenAIClient, deployment: string){
         let typeSearchOptions: string[];
-        typeSearchOptions= [`${callData.session.contract_type}_table-index`, 
-                            `${callData.session.contract_type}_chunk-index`,
-                            `${callData.session.contract_type}_json-index`, 
-                            `${callData.session.contract_type}_summary-index`];
+        if (callData.state == 'GENERIC_RESPONSE'){
+            typeSearchOptions= [`${callData.session.contractType}_summary-index`];
+        }else{
+            typeSearchOptions= [`${callData.session.contractType}_table-index`, 
+                            `${callData.session.contractType}_chunk-index`,
+                            `${callData.session.contractType}_json-index`, 
+                            `${callData.session.contractType}_summary-index`];
+        }
         let evaluation = false;
         let data_response: Data | null = null;
         let type: string | null = null;
         const dataResponsesArray: any[] = [];
+        let tempDocList = []
+        tempDocList = callData.session.grounding_data.filter(dict => dict.key === 'document_list').map(dict => dict.content)[0]
+        if(tempDocList == undefined){
+            tempDocList =  callData.documents;
+        }
+        
         for (const typeSearchOption of typeSearchOptions) {
-            data_response = await VerifySearch(callData.query, Object.keys(callData.searchResponse), typeSearchOption, callData.session.contract_type);
+            data_response = await VerifySearch(callData.query, tempDocList, typeSearchOption, callData.session.contractType);
             
             if (typeSearchOption.indexOf('chunk-index') !== -1 || typeSearchOption.indexOf('json-index') !== -1 || typeSearchOption.indexOf('summary-index') !== -1 ){
-                evaluation = await EvaluateSearch.run(JSON.stringify(data_response), callData.query, openaiClient, deployment);
+                //evaluation = await EvaluateSearch.run(JSON.stringify(data_response), callData.query, openaiClient, deployment);
                 console.log(typeSearchOption)
                 console.log(evaluation)
             }
             if (data_response != null) {
-                dataResponsesArray.push(...data_response);
+                const normalizedDictionaries = normalizeScores(data_response, 'score');
+                const sortedItems = normalizedDictionaries.sort((a: { score: number; }, b: { score: number; }) => b.score - a.score);
+                const top10_selected_val = sortedItems.slice(0, 10);
+                const modifiedData = top10_selected_val.map(({ score, rerankerScore, captions, ...rest }) => rest);
+                dataResponsesArray.push(...modifiedData);
             }
             if (evaluation && data_response != null){
                 type = typeSearchOption;
@@ -241,9 +249,6 @@ function getUniqueDictionaries(dictionaries: Dictionary[]): Dictionary[] {
                 type = typeSearchOption;
             }
         }
-        // if (data_response === null || data_response.length === 0 || !evaluation) {
-        //     data_response = dataResponsesArray
-        // }  
         return dataResponsesArray
     }
 
@@ -264,9 +269,12 @@ export class SearchIndexes {
             }
         } else {
             const normalizedDictionaries = normalizeScores(data_response, 'score');
-            // const uniqueDictionaries = getUniqueDictionaries(normalizedDictionaries);
-            // const filteredData = filterByKey(normalizedDictionaries, 0.5, 'score');
-            const { resultDictionary: resultDictionary, document_list: document_list } = generateDictionary(normalizedDictionaries, 'fileName', callData.searchResponse);
+            let tempDocList = []
+            tempDocList = callData.session.grounding_data.filter(dict => dict.key === 'document_list').map(dict => dict.content)[0]
+            if(tempDocList == undefined){
+                tempDocList =  callData.documents;
+            }
+            const { resultDictionary: resultDictionary, document_list: document_list } = generateDictionary(normalizedDictionaries, 'fileName', tempDocList);
             return {
                 state: "ANSWER_FROM_SEARCH",
                 searchResponse: resultDictionary,
@@ -282,17 +290,17 @@ export class SearchIndexes {
 
     static async run_individual(callData: SearchIndividualCallDataIndex, openaiClient: OpenAIClient, deployment: string): Promise<AnswerFromSearchCallDataIndex | NeedsMoreContextCallData> {
         
-        const typeSearchOptions= [`${callData.session.contract_type}_json-index`, 
-                                    `${callData.session.contract_type}_summary-index`, 
-                                    `${callData.session.contract_type}_table-index`, 
-                                    `${callData.session.contract_type}_chunk-index`];
+        const typeSearchOptions= [`${callData.session.contractType}_json-index`, 
+                                    `${callData.session.contractType}_summary-index`, 
+                                    `${callData.session.contractType}_table-index`, 
+                                    `${callData.session.contractType}_chunk-index`];
         let evaluation = false;
         let data_response: Data | null = null;
         let type: string | null = null;
         const dataResponsesArray: any[] = [];
 
         for (const typeSearchOption of typeSearchOptions) {
-            data_response = await Search_individual(callData.query, callData.documents, typeSearchOption, callData.session.contract_type);
+            data_response = await Search_individual(callData.query, callData.documents, typeSearchOption, callData.session.contractType);
             evaluation = await EvaluateSearch.run(JSON.stringify(data_response), callData.query, openaiClient, deployment);      
             console.log(evaluation)      
             type = typeSearchOption;

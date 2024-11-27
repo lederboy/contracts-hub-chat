@@ -58,7 +58,7 @@ function convertEntries(entries: OriginalEntry[]): CustomChatRequestMessage [] {
 }
 
 export class AnswerQueryFromSearch {
-    static formatUserPrompt(mapping: any, query: string, ChatHistory: Message[]): string {
+    static formatUserPrompt(mapping: any, query: string, ChatHistory: Message[], contractType: string): string {
         let highestChatOrderMessage;
         let highestOutgoingChatOrderMessage;
         if (ChatHistory.length > 0){
@@ -89,23 +89,28 @@ export class AnswerQueryFromSearch {
                 }
               });
         }else{
-            mappingStrings = Object.keys(mapping).map((k) => `${k} -> ${mapping[k]}`)
+            mappingStrings = Object.keys(mapping).map((k) => `\t${k} -> ${mapping[k]}`)
         }
         
 
         return `        
-        Based on the provided mappings and if the historical context exist, please respond the query asked by the user.
+        Using the Inferred Buisness Model and any available historical context, respond to the user's User Query. 
         ${historicalContextString}
-        Mappings:
-            ${mappingStrings.join('\n')}
-        Query:
-            ${query}
-        If your response involves referring to a file in .pdf format or a specific document from the provided list, please enclose it in angle brackets like <contract.pdf> or <contract>
-        
+        Inferred Buisness Model:
+          ${mappingStrings.join('\n')}
+        User Query: ${query}
+        Guidelines for Response:
+            1. Tailor the response based on the User Query and Inferred Buisness Model.
+            2. If multiple documents or files are relevant, include all in the response in a organized miner.
+            3. If no relevant historical context or Inferred Buisness Model exist, attempt to answer the User Query while notifying the user of the absence of information in the Inferred Buisness Model.
+            4. Enclose references to files in .pdf format or specific documents in angle brackets, such as <contract.pdf> or <contract>.
+            5. Format any data-centric portions of the response as a Markdown table.
+            6. If their is a historical context available, use it as a guide to respone the user query based on the historical context and the Inferred Buisness Model.
         `
     }
-    static async run(callData: AnswerFromSearchCallData, openaiClient: OpenAIClient, deployment: string, overrideDeployment: boolean = false): Promise<EvaluateCallData> {       
-        const response_ = this.formatUserPrompt(callData.searchResponse, callData.query, callData.session.chatHistory)
+    static async run(callData: AnswerFromSearchCallData, openaiClient: OpenAIClient, deployment: string, overrideDeployment: boolean = false): Promise<EvaluateCallData> { 
+        const helpText = ""//"\nWe hope you find the information provided helpful! Please note that our system is designed to display a maximum of the top 10 results to ensure clarity and relevance. If you need further details beyond these results, feel free to reach out with more specific queries or adjust your search criteria to explore additional information. Thank you for understanding!"
+        const response_ = this.formatUserPrompt(callData.searchResponse, callData.query, callData.session.chatHistory, callData.session.contractType)
         const tokenLimit = 4096;
         const isExceeding = isTokenCountExceedingLimit(response_, tokenLimit);
         let chat_history = callData.session.chatHistory.slice(Math.max(callData.session.chatHistory.length - 2, 0))
@@ -113,7 +118,7 @@ export class AnswerQueryFromSearch {
         let prompt_chat: CustomChatRequestMessage[] = [AnswerQueryFromSearchPrompt, ...convertedArray];
         
         if (overrideDeployment && isExceeding) {
-            deployment = 'gpt-4o';
+            deployment = 'gpt-4';
         }else{
             deployment = 'gpt-35-turbo';
         }
@@ -130,9 +135,9 @@ export class AnswerQueryFromSearch {
             let message = choice.message
 
             if(message.content){
-                const regex = /(\d+\.\s)(.*?\.pdf)/g;
-                // const pdfPattern = /<([^>]+\.pdf)>/g;
-                const pdfPattern = /<pharmacy\/([^\/]+\.pdf)>/g;
+                // const patternString = `([^\\/]+\\.pdf)`;
+                const patternString = /<([^>]+\.pdf)>/g;
+                const pdfPattern = new RegExp(patternString, 'g');
                 let filenames: string[] = [];
                 let match;
 
@@ -148,17 +153,20 @@ export class AnswerQueryFromSearch {
                 const cleanedFilenames: string[] = filenames.map(filename => filename.replace("**", ""));
                 const uniqueFilenames = Array.from(new Set(cleanedFilenames));
                 
-                let prefixedFilenames = uniqueFilenames.map(filename => `pharmacy/${filename}`);
+                let prefixedFilenames = uniqueFilenames.map(filename => `${callData.session.contractType}/${filename}`);
 
                 callData.documents = Array.from(prefixedFilenames);
-
-
+                const result = message.content.replace(pdfPattern, (match, p1) => p1);
+                const patternString_2 = `${callData.session.contractType}\/([^\/]+\.pdf)`;
+                const pdfPattern_2 = new RegExp(patternString_2, 'g');
+                const result_value = result.replace(pdfPattern_2, (match, p1) => p1) ;
+                
                 return {
                     state: 'EVALUATE',
                     session: callData.session,
                     documents: callData.documents,
                     query: callData.query,
-                    llmResponse: message.content
+                    llmResponse: result_value + helpText
                 }
             }
            }

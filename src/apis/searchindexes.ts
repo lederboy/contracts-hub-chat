@@ -120,12 +120,30 @@ const removeFields = (array: Dictionary[], fields: string[]): Dictionary[] => {
 };
 
 
-export async function VerifySearch_meta(searchRequest: string, contract_type: string) {
+export async function VerifySearch_meta(searchRequest: string, contractType: string) {
   
-     
+  // search: searchRequest,     
+  // const summaryPayload = JSON.stringify({
+  //   search: "*",
+  //   select: "ContractFileName,LineofBusiness,AgreementEffectiveDate,AgreementEndDate,VaccineListAvailable,ChainCodes,ActiveStatus,Company,DocumentType",
+  //   orderby: "search.score() desc"
+  // });
   const summaryPayload = JSON.stringify({
     search: searchRequest,
-    orderby: "search.score() desc"
+    count: true,
+    vectorQueries: [
+      {
+        kind: "text",
+        text: searchRequest,
+        fields: "embedding"
+      }
+    ],
+    queryType: "semantic",
+    semanticConfiguration: "basic",
+    captions: "extractive",
+    answers: "extractive|count-3",
+    queryLanguage: "en-us",
+    select: "ContractFileName,LineofBusiness,AgreementEffectiveDate,AgreementEndDate,VaccineListAvailable,ChainCodes,ActiveStatus,Company,AzureSearch_DocumentKey,DocumentType"
   });
   const summary_settings = {  
       method: "POST",  
@@ -137,7 +155,7 @@ export async function VerifySearch_meta(searchRequest: string, contract_type: st
     }; 
 
   const summary_url =  process.env.AI_SEARCH_ENDPOINT! + '/indexes/metadata-index/docs/search?api-version=2024-05-01-preview'
-  const searchResults = await fetch(summary_url, summary_settings); 
+  const searchResults = await fetch(summary_url, summary_settings);
   if (!searchResults.ok) {  
     throw new Error(`HTTP error! status: ${searchResults.status}`);  
   }  
@@ -150,8 +168,8 @@ export async function VerifySearch_meta(searchRequest: string, contract_type: st
   return joinedData;
 };
 
-export async function VerifySearch(searchRequest: string, file_array: string[], type_search: string, contract_type: string) {
-  let prefix: string = contract_type+'_';
+export async function VerifySearch(searchRequest: string, file_array: string[], type_search: string, contractType: string) {
+  let prefix: string = contractType+'_';
   const semantic_config: { [key: string]: string } = {
     [`${prefix}summary-index`]: "basic",
     [`${prefix}json-index`]: "basic",
@@ -167,13 +185,23 @@ export async function VerifySearch(searchRequest: string, file_array: string[], 
   }
 
 
-  const filter_type: { [key: string]: string } = {
-    [`${prefix}summary-index`]: file_array.map(name => `fileName eq '${contract_type}/${name.replace('.pdf', '')}'`).join(' or '),
-    [`${prefix}json-index`]: file_array.map(name => `fileName eq '${contract_type}/${name.replace('.pdf', '')}'`).join(' or '),
-    [`${prefix}chunk-index`]: file_array.map(name => `fileName eq '${contract_type}/${name.replace('.pdf', '')}'`).join(' or '),
-    [`${prefix}table-index`] : file_array.map(name => `fileName eq '${contract_type}/${name.replace('.pdf', '')}'`).join(' or ')
+  function getFilterString(fileArray: string[]): string {
+    if (fileArray.length === 0) {
+      // Handle the case when file_array is empty
+      return ""; // Return an empty string or another default condition suitable for your API
+    } else {
+      return fileArray.map(name => `fileName eq '${contractType}/${name.replace('.pdf', '')}'`).join(' or ');
+    }
   }
 
+  
+  const filter_type: { [key: string]: string } = {
+    [`${prefix}summary-index`]: getFilterString(file_array),
+    [`${prefix}json-index`]: getFilterString(file_array),
+    [`${prefix}chunk-index`]: getFilterString(file_array),
+    [`${prefix}table-index`]: getFilterString(file_array),
+  };
+  
   const vectorQueries_fields: { [key: string]: string } = {
     [`${prefix}summary-index`]: "embedding",
     [`${prefix}json-index`]: "embedding",
@@ -238,7 +266,7 @@ export async function VerifySearch(searchRequest: string, file_array: string[], 
     // outputArray = await replaceScoreChunksKey(joinedData, '_table');
 
     const sortedItems = joinedData.sort((a: { rerankerScore: number; }, b: { rerankerScore: number; }) => b.rerankerScore - a.rerankerScore);
-    const top10_selected_val = sortedItems.slice(0, 10);
+    const top10_selected_val = sortedItems//.slice(0, 10);
 
     uniqueArray = top10_selected_val
   }
@@ -250,8 +278,8 @@ export async function VerifySearch(searchRequest: string, file_array: string[], 
   return summaries;
 };
   
-export async function Search_individual(searchRequest: string, document: string, type_search: string, contract_type: string) {
-  let prefix: string = contract_type+'_';
+export async function Search_individual(searchRequest: string, document: string, type_search: string, contractType: string) {
+  let prefix: string = contractType+'_';
   
   const semantic_config: { [key: string]: string } = {
     [`${prefix}summary-index`]: "basic",
@@ -269,10 +297,10 @@ export async function Search_individual(searchRequest: string, document: string,
 
 
   const filter_type: { [key: string]: string } = {
-    [`${prefix}summary-index`]: `fileName eq '${contract_type}/${document.replace('.pdf', '')}'`,
-    [`${prefix}json-index`]: `fileName eq '${contract_type}/${document.replace('.pdf', '')}'`,
-    [`${prefix}chunk-index`]: `fileName eq '${contract_type}/${document.replace('.pdf', '')}'`,
-    [`${prefix}table-index`] : `fileName eq '${contract_type}/${document.replace('.pdf', '')}'`
+    [`${prefix}summary-index`]: `fileName eq '${contractType}/${document.replace('.pdf', '')}'`,
+    [`${prefix}json-index`]: `fileName eq '${contractType}/${document.replace('.pdf', '')}'`,
+    [`${prefix}chunk-index`]: `fileName eq '${contractType}/${document.replace('.pdf', '')}'`,
+    [`${prefix}table-index`] : `fileName eq '${contractType}/${document.replace('.pdf', '')}'`
   }
 
   const vectorQueries_fields: { [key: string]: string } = {

@@ -13,6 +13,10 @@ export class Finalize {
             //     document_holder.push(document)
             // }
         }
+        if (callData.session.grounding_data.length==0){
+            callData.session.grounding_data.push({key: "metadata", content:  callData.llmResponse})
+            callData.session.grounding_data.push({key: "document_list", content: document_holder.map(item => item.replace(`${callData.session.contractType}/`, ''))})
+        }
        
         callData.session.chatHistory.push(
             {

@@ -119,7 +119,7 @@ export class AnswerQueryFromGenericResponse {
         const convertedArray = convertEntries(chat_history);
         let prompt_chat: CustomChatRequestMessage[] = [AnswerQueryFromGenericQuestion, ...convertedArray];
         if (overrideDeployment && isExceeding) {
-            deployment = 'gpt-4o';
+            deployment = 'gpt-4';
         }else{
             deployment = 'gpt-35-turbo';
         }
@@ -136,9 +136,8 @@ export class AnswerQueryFromGenericResponse {
             let message = choice.message
 
             if(message.content){
-                const regex = /(\d+\.\s)(.*?\.pdf)/g;
-                // const pdfPattern = /<([^>]+\.pdf)>/g;
-                const pdfPattern = /<pharmacy\/([^\/]+\.pdf)>/g;
+                const patternString = `${callData.session.contractType}\\/([^\\/]+\\.pdf)`;
+                const pdfPattern = new RegExp(patternString, 'g');
                 let filenames: string[] = [];
                 let match;
                 while ((match = pdfPattern.exec(message.content)) !== null) {
@@ -150,9 +149,13 @@ export class AnswerQueryFromGenericResponse {
                 const cleanedFilenames: string[] = filenames.map(filename => filename.replace("**", ""));
                 const uniqueFilenames = Array.from(new Set(cleanedFilenames));
                 // const updatedDocumentsSet: Set<string> = new Set([...callData.documents, ...uniqueFilenames]);
-                let prefixedFilenames = uniqueFilenames.map(filename => `pharmacy/${filename}`);
+                let prefixedFilenames = uniqueFilenames.map(filename => `${callData.session.contractType}/${filename}`);
 
                 callData.documents = Array.from(prefixedFilenames);
+                const result = message.content.replace(pdfPattern, (match, p1) => p1);                
+                const patternString_2 = `${callData.session.contractType}\/([^\/]+\.pdf)`;
+                const pdfPattern_2 = new RegExp(patternString_2, 'g');
+                const result_value = result.replace(pdfPattern_2, (match, p1) => p1);
 
 
                 return {
@@ -160,7 +163,7 @@ export class AnswerQueryFromGenericResponse {
                     session: callData.session,
                     documents: callData.documents,
                     query: callData.query,
-                    llmResponse: message.content
+                    llmResponse: result_value
                 }
             }
            }
