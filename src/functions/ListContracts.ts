@@ -1,13 +1,15 @@
 import {app,HttpRequest,HttpResponseInit,InvocationContext,} from "@azure/functions";
   import { BlobServiceClient, ContainerClient, StorageSharedKeyCredential } from "@azure/storage-blob";
   import { ListContractsSchema } from "../definitions/exchange";
+  import {v4 as uuidv4} from 'uuid';
   
   export async function ListContracts(request: HttpRequest,context: InvocationContext): Promise<HttpResponseInit> {
     const ListSesh = ListContractsSchema.parse(await request.json());
     let user = ListSesh.user;
     let contractType = ListSesh.contractType;
 
-    const blobList = [];
+    
+    const blobList: Array<{ title: string; docId: string }> = [];
     
   
     const containerClient = new ContainerClient(
@@ -32,8 +34,9 @@ import {app,HttpRequest,HttpResponseInit,InvocationContext,} from "@azure/functi
       const directoryName = `contracts/${contractType}/`;
       const ListIterator = containerClient.listBlobsFlat({prefix: directoryName});
       for await (const blob of ListIterator) {
-        const contractName = blob.name.replace(directoryName, '')
-        blobList.push(contractName);
+        const title = blob.name.replace('contracts/', ''); // Replace with actual directory name if needed
+        const docId =uuidv4();
+        blobList.push({ title, docId });
       }
   
       return {
